@@ -107,7 +107,6 @@ function gameStart() {
     console.log("inputList.length = 0");
   }
   for (var i = 0; i < inputList.length; i++) {
-    inputList[i].disabled = true;
     if (inputList[i].value.match(/^\s*$/g)) {
       inputList[i].value = "陳麻婆豆腐"
     }
@@ -343,6 +342,10 @@ function setJquery() {
 function gameSet() {
   if (gameStatus === 0) {
     gameStart()
+    var inputList = $("#input_pluralBox").find(".form-control");
+    for (var i = 0; i < inputList.length; i++) {
+      inputList[i].disabled = true;
+    }
     this.value = "STOP";
   } else if (gameStatus === 1) {
     this.disabled = true;
