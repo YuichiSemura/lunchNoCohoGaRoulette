@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" type="text/css" href="css/roulette.css">
+  <script src="js/jquery-3.4.1.min.js"></script>
+  <script src="js/three.min.js"></script>
+  <script src="js/OrbitControls.js"></script>
+  <script src="js/roulette.js"></script>
+
+  <!-- 参考: https://sweetalert.js.org/ -->
+  <script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
+</head>
+
+<body>
+  <div class="header">
+    <p class="title">　ランチ候補が回るやつ</p>
+    <p class="aruaru">↑はい！はい！はいはいはい！（自然発生型あるある探検隊）</p>
+    <!-- ソースコード見て気づく奴！ -->
+  </div>
+  <div class="container">
+    <div class="configing">
+      <div class="usage">
+        <p style="font-size: 30px;">～使い方～</p>
+        <p>1, ↓にランチに行きたい候補を入れます。</p>
+        <p>2, スタートを押して開始します。</p>
+        <p>3, ストップを押して祈ります。</p>
+        <p>4, 止まったところでランチします。</p>
+        <p>　</p>
+        <p style="font-size: 30px;">候補</p>
+        <p>（最大で8個まで）</p>
+        <div id="input_pluralBox">
+          <div class="input_plural">
+            <input type="text" class="form-control" value="陳麻婆豆腐">
+            <input type="button" value="＋" class="add pluralBtn">
+            <input type="button" value="－" class="del pluralBtn">
+          </div>
+          <div class="input_plural">
+            <input type="text" class="form-control" value="McDonald">
+            <input type="button" value="＋" class="add pluralBtn">
+            <input type="button" value="－" class="del pluralBtn">
+          </div>
+          <div class="input_plural">
+            <input type="text" class="form-control" value="五右衛門">
+            <input type="button" value="＋" class="add pluralBtn">
+            <input type="button" value="－" class="del pluralBtn">
+          </div>
+        </div>
+        <p>　</p>
+        <p style="font-size: 30px;">ルーレット</p>
+        <p>左clickと右clickでカメラ操作が出来ます。</p>
+      </div>
+    </div>
+
+    <div class="configanai">
+      <canvas id="myCanvas"></canvas>
+      <input id="button" class="btn-square-so-pop" value="START"></input>
+    </div>
+  </div>
+</body>
+
+</html>
