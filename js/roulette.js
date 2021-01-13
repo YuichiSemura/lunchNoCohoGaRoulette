@@ -18,14 +18,57 @@ var speedCurveCurvePlus = 0.00003;
 var speedCurveCurveMinus = 0.0000027;
 
 function init() {
+  setParameter()
   setThree()
   setJquery()
+}
+
+function setParameter() {
+  query = getParam("list", location.href)
+  list = query == null ? ["陳麻婆豆腐", "McDonald", "五右衛門"] : list = query.split(",")
+  lunchBox = document.getElementById("input_lunchbox")
+  for (lunchstr of list) {
+    // ランチのHTML要素を追加する。
+    lunch = document.createElement('div')
+    lunch.setAttribute("class", "input_lunch")
+
+    text = document.createElement("input")
+    text.setAttribute("type", "text")
+    text.setAttribute("class", "form-control")
+    text.setAttribute("value", lunchstr)
+    lunch.appendChild(text)
+
+    lunchBtn1 = document.createElement("input")
+    lunchBtn1.setAttribute("type", "button")
+    lunchBtn1.setAttribute("value", "＋")
+    lunchBtn1.setAttribute("class", "add lunchBtn")
+    lunch.appendChild(lunchBtn1)
+
+    lunchBtn2 = document.createElement("input")
+    lunchBtn2.setAttribute("type", "button")
+    lunchBtn2.setAttribute("value", "－")
+    lunchBtn2.setAttribute("class", "del lunchBtn")
+    lunch.appendChild(lunchBtn2)
+
+    lunchBox.appendChild(lunch)
+  }
+
+  setUrlBox()
+}
+
+function getParam(name, url) {
+  if (!url) url = window.location.href;
+  name = name.replace(/[\[\]]/g, "\\$&");
+  var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+    results = regex.exec(url);
+  if (!results) return null;
+  if (!results[2]) return '';
+  return decodeURIComponent(results[2].replace(/\+/g, " "));
 }
 
 function setThree() {
   // canvas 要素の参照を取得する
   const canvas = document.querySelector('#myCanvas');
-  var selectObj = null;
 
   // サイズを指定
   const width = $("#myCanvas").parent().width() - 20;
@@ -102,7 +145,7 @@ function onResize() {
 function gameStart() {
   // データ作り
   var lunch = [];
-  var inputList = $("#input_pluralBox").find(".form-control");
+  var inputList = $("#input_lunchbox").find(".form-control");
   if (inputList.length === 0) {
     console.log("inputList.length = 0");
   }
@@ -273,7 +316,7 @@ function addCone(scene, ereaSize) {
 
 function gameEnd() {
   // 判定
-  var list = $("#input_pluralBox").find(".form-control");
+  var list = $("#input_lunchbox").find(".form-control");
   var quo = rouletteGroup.rotation.y / (Math.PI * 2)
   var r = Math.floor((quo - Math.floor(quo)) * list.length);
   gameStatus = 0;
@@ -293,22 +336,6 @@ function gameEnd() {
   });
 }
 
-function getPlaneOfCamera(position, camera) {
-  // カメラ自体の単位法線ベクトル
-  var vec = new THREE.Vector3(0, 0, 1);
-  //変換前のベクトル 
-  vec.applyEuler(new THREE.Euler(camera.rotation.x, camera.rotation.y, camera.rotation.z, 'XYZ'));
-  //変換後のベクトル　(0, 0, 1)を移動してるのでもちろん長さは1になります！！
-
-  // 法線ベクトルvecを持つ平面で、Oを通るもの。（Oとの距離が0のもの）
-  var plane = new THREE.Plane(new THREE.Vector3(vec.x, 0, vec.z), 0);
-  // 対象の物体との距離を計算する
-  var distance = plane.distanceToPoint(new THREE.Vector3(position.x, position.y, position.z));
-  // 法線ベクトルvecを持つ平面で、対象の中心を通るもの。（物体との距離が-distanceのもの）
-  var plane2 = new THREE.Plane(vec, -distance);
-  return plane2;
-}
-
 function setJquery() {
   $(document).ready(function() {
     $("#button").on('click', gameSet);
@@ -320,7 +347,7 @@ function setJquery() {
     var count = $(this).parent().parent().children().length;
     if (count < 8) {
       var newParent = $(this).parent().clone(true);
-      newParent.prop("id", "input_plural-" + (count + 1));
+      newParent.prop("id", "input_lunch-" + (count + 1));
       var newControl = newParent.find(".form-control")[0];
       newControl.disabled = false;
       newControl.value = "";
@@ -337,12 +364,15 @@ function setJquery() {
       target.remove();
     }
   });
+  $(document).on("focus", "#url_box", function() {
+    setUrlBox()
+  });
 }
 
 function gameSet() {
   if (gameStatus === 0) {
     gameStart()
-    var inputList = $("#input_pluralBox").find(".form-control");
+    var inputList = $("#input_lunchbox").find(".form-control");
     for (var i = 0; i < inputList.length; i++) {
       inputList[i].disabled = true;
     }
@@ -352,4 +382,13 @@ function gameSet() {
     this.classList.add("dark");
   }
   gameStatus++;
+}
+
+function setUrlBox() {
+  lunch_children = document.getElementById("input_lunchbox").children
+  new_query = location.origin + location.pathname + "?list=";
+  for (c of lunch_children) {
+    new_query += encodeURIComponent(String($(c).find(".form-control")[0].value)) + ",";
+  }
+  document.getElementById("url_box").value = new_query.substring(0, new_query.length - 1);
 }

@@ -15,6 +15,7 @@ body {
 
 .configing {
   width: 30%;
+  font-size: 16px;
 }
 
 .configanai {
@@ -65,12 +66,12 @@ div input {
 
 /* https://webcrehoo.com/56 */
 
-.input_plural {
+.input_lunch {
   margin: 4px 0;
   text-align: center;
 }
 
-.input_plural input.form-control {
+.input_lunch input.form-control {
   display: inline-block;
   text-align: center;
   width: 150px;
@@ -78,23 +79,24 @@ div input {
   padding: 2px 2px;
   font-size: 18px;
   color: #555;
+  margin: 1px 3px 0px 0px;
 }
 
-.input_plural input.pluralBtn {
+.input_lunch input.lunchBtn {
   display: inline-block;
   width: 30px;
   height: 30px;
   border: 1px solid #ccc;
   border-radius: 10px;
   padding: 0;
-  margin: 0;
+  margin: 2px;
 }
 
-.input_plural input.add {
+.input_lunch input.add {
   background: #ffcccc;
 }
 
-.input_plural input.del {
+.input_lunch input.del {
   background: #ccccff;
 }
 

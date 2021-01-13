@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="utf-8" />
-  <title>ランチの候補がルーレット</title>
+  <title>ランチの候補がルーレット ver1.1</title>
   <link rel="stylesheet" type="text/css" href="css/roulette.css">
   <script src="js/jquery-3.4.1.min.js"></script>
   <script src="js/three.min.js"></script>
@@ -16,7 +16,7 @@
 
 <body>
   <div class="header">
-    <p class="title">ランチの候補がルーレット</p>
+    <p class="title">ランチの候補がルーレット ver1.1</p>
     <p class="aruaru">↑はい！はい！はいはいはい！（自然発生型あるある探検隊）</p>
     <!-- ソースコード見て気づく奴！ -->
   </div>
@@ -31,26 +31,13 @@
         <p>　</p>
         <p style="font-size: 30px;">候補</p>
         <p>（最大で8個まで）</p>
-        <div id="input_pluralBox">
-          <div class="input_plural">
-            <input type="text" class="form-control" value="陳麻婆豆腐">
-            <input type="button" value="＋" class="add pluralBtn">
-            <input type="button" value="－" class="del pluralBtn">
-          </div>
-          <div class="input_plural">
-            <input type="text" class="form-control" value="McDonald">
-            <input type="button" value="＋" class="add pluralBtn">
-            <input type="button" value="－" class="del pluralBtn">
-          </div>
-          <div class="input_plural">
-            <input type="text" class="form-control" value="五右衛門">
-            <input type="button" value="＋" class="add pluralBtn">
-            <input type="button" value="－" class="del pluralBtn">
-          </div>
-        </div>
+        <div id="input_lunchbox"></div>
         <p>　</p>
         <p style="font-size: 30px;">ルーレット</p>
         <p>マウスでカメラが動かせます。</p>
+        <p>　</p>
+        <p style="font-size: 30px;">リスト共有URL</p>
+        <p><input id="url_box" value="https://yuichisemura.github.io/lunchNoCohoGaRoulette/" type="text" name="name" size="30" maxlength="20"></p>
       </div>
     </div>
 
