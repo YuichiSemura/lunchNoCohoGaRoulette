@@ -1,28 +1,35 @@
-// ページの読み込みを待つ
-window.addEventListener('load', init);
-// リサイズイベント発生時に実行
-window.addEventListener('resize', onResize);
-
-
 var ORIGIN = new THREE.Vector3(0, 0, 0);
 var render;
 var camera;
 var scene;
 var rouletteGroup;
+// ゲームの状態
 var gameStatus = 0;
+// ルーレットの速度
 var speed = 0;
+// ルーレットの最高速度
 var speedMax = 0.196;
+// ルーレットの加速度
 var speedPlus = 0.001;
+// ルーレットの加速度の微分
 var speedCurve = 0;
+// ルーレットの加速度の微分の加速時の微分
 var speedCurveCurvePlus = 0.00003;
+// ルーレットの加速度の微分の減速時の微分
 var speedCurveCurveMinus = 0.0000027;
 
-function init() {
-  setParameter()
-  setThree()
-  setJquery()
+// URLのパース
+function getParam(name, url) {
+  if (!url) url = window.location.href;
+  name = name.replace(/[\[\]]/g, "\\$&");
+  var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+    results = regex.exec(url);
+  if (!results) return null;
+  if (!results[2]) return '';
+  return decodeURIComponent(results[2].replace(/\+/g, " "));
 }
 
+// URLからの情報取得処理
 function setParameter() {
   query = getParam("list", location.href)
   list = query == null ? ["陳麻婆豆腐", "McDonald", "五右衛門"] : list = query.split(",")
@@ -56,20 +63,8 @@ function setParameter() {
   setUrlBox()
 }
 
-function getParam(name, url) {
-  if (!url) url = window.location.href;
-  name = name.replace(/[\[\]]/g, "\\$&");
-  var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
-    results = regex.exec(url);
-  if (!results) return null;
-  if (!results[2]) return '';
-  return decodeURIComponent(results[2].replace(/\+/g, " "));
-}
-
+// キャンバスの初期設定
 function setThree() {
-  // canvas 要素の参照を取得する
-  const canvas = document.querySelector('#myCanvas');
-
   // サイズを指定
   const width = $("#myCanvas").parent().width() - 20;
   const height = 700;
@@ -99,7 +94,7 @@ function setThree() {
   addLight(scene, ereaSize);
 
   // 地面を作成
-  addFloorAndGrid(scene, ereaSize);
+  addFloor(scene, ereaSize);
 
   // 針を作成
   addCone(scene, ereaSize);
@@ -128,6 +123,7 @@ function setThree() {
   }
 }
 
+// 画面サイズ変更時の処理
 function onResize() {
   // サイズを取得
   const width = $("#myCanvas").parent().width() - 20;
@@ -142,6 +138,7 @@ function onResize() {
   camera.updateProjectionMatrix();
 }
 
+// ゲーム開始時の処理
 function gameStart() {
   // データ作り
   var lunch = [];
@@ -173,11 +170,10 @@ function gameStart() {
     }
   }
 
-  // 球体づくり
   addCylinders(lunch, color);
 }
 
-
+// 円盤作り
 function addCylinders(lunch, color) {
   scene.remove(rouletteGroup);
   rouletteGroup = new THREE.Group();
@@ -202,7 +198,7 @@ function addCylinders(lunch, color) {
       circle.receiveShadow = true;
       rouletteGroup.add(circle);
 
-      // 文字の追加
+      // 数字の追加
       var loader = new THREE.FontLoader();
       loader.load('json/helvetiker_bold.typeface.json', function(font) {
         var text = Number(i) + 1; /* lunch[i].toString() */
@@ -241,7 +237,6 @@ function addCylinders(lunch, color) {
         rouletteGroupchild.position.set(han * Math.cos(txtrad), 40, han * Math.sin(-txtrad));
 
         // 文字オブジェクト自体の回転
-        var txtrad2 = Math.PI * 2 * (i + 1) / lunch.length + Math.PI;
         var txtrad2 = -(Math.PI * 2 * i / lunch.length + Math.PI * 1 / lunch.length)
         rouletteGroupchild.rotation.set(0, txtrad2, 0);
 
@@ -253,6 +248,7 @@ function addCylinders(lunch, color) {
   scene.add(rouletteGroup);
 }
 
+// 照明の追加
 function addLight(scene, ereaSize) {
   const spotLight = new THREE.PointLight(0xFFFFFF, 3.4, 6000, 2.0);
   spotLight.position.set(ereaSize * 0.2, ereaSize * 0.2, ereaSize * 0.2);
@@ -264,7 +260,8 @@ function addLight(scene, ereaSize) {
   scene.add(ambientLight);
 }
 
-function addFloorAndGrid(scene, ereaSize) {
+// 床壁を追加
+function addFloor(scene, ereaSize) {
   const floorGeometry = new THREE.PlaneGeometry(ereaSize, ereaSize);
   const floorMaterial = new THREE.MeshStandardMaterial({
     color: 0x66BBDD,
@@ -301,7 +298,8 @@ function addFloorAndGrid(scene, ereaSize) {
   scene.add(floorXY2);
 }
 
-function addCone(scene, ereaSize) {
+// ルーレットの針を追加
+function addCone(scene) {
   var geometry = new THREE.ConeBufferGeometry(3, 40, 30);
   var material = new THREE.MeshBasicMaterial({
     color: 0xffff00,
@@ -314,6 +312,7 @@ function addCone(scene, ereaSize) {
   scene.add(cone);
 }
 
+// ゲーム終了処理
 function gameEnd() {
   // 判定
   var list = $("#input_lunchbox").find(".form-control");
@@ -336,10 +335,26 @@ function gameEnd() {
   });
 }
 
+// 各イベントの設定
 function setJquery() {
+  // START/STOPボタンの処理
   $(document).ready(function() {
-    $("#button").on('click', gameSet);
-  })
+      $("#button").on('click', function() {
+        if (gameStatus === 0) {
+          gameStart()
+          var inputList = $("#input_lunchbox").find(".form-control");
+          for (var i = 0; i < inputList.length; i++) {
+            inputList[i].disabled = true;
+          }
+          this.value = "STOP";
+        } else if (gameStatus === 1) {
+          this.disabled = true;
+          this.classList.add("dark");
+        }
+        gameStatus++;
+      });
+    })
+    // 追加ボタンの処理
   $(document).on("click", ".add", function() {
     if (gameStatus !== 0) {
       return;
@@ -355,6 +370,7 @@ function setJquery() {
       newParent.insertAfter($(this).parent());
     }
   });
+  // 削除ボタンの処理
   $(document).on("click", ".del", function() {
     if (gameStatus !== 0) {
       return;
@@ -364,31 +380,25 @@ function setJquery() {
       target.remove();
     }
   });
+  // URLボックスの更新処理
   $(document).on("focus", "#url_box", function() {
-    setUrlBox()
+    lunch_children = document.getElementById("input_lunchbox").children
+    new_query = location.origin + location.pathname + "?list=";
+    for (c of lunch_children) {
+      new_query += encodeURIComponent(String($(c).find(".form-control")[0].value)) + ",";
+    }
+    document.getElementById("url_box").value = new_query.substring(0, new_query.length - 1);
   });
 }
 
-function gameSet() {
-  if (gameStatus === 0) {
-    gameStart()
-    var inputList = $("#input_lunchbox").find(".form-control");
-    for (var i = 0; i < inputList.length; i++) {
-      inputList[i].disabled = true;
-    }
-    this.value = "STOP";
-  } else if (gameStatus === 1) {
-    this.disabled = true;
-    this.classList.add("dark");
-  }
-  gameStatus++;
+// 初期表示時の操作
+function init() {
+  setParameter()
+  setThree()
+  setJquery()
 }
 
-function setUrlBox() {
-  lunch_children = document.getElementById("input_lunchbox").children
-  new_query = location.origin + location.pathname + "?list=";
-  for (c of lunch_children) {
-    new_query += encodeURIComponent(String($(c).find(".form-control")[0].value)) + ",";
-  }
-  document.getElementById("url_box").value = new_query.substring(0, new_query.length - 1);
-}
+// ページの読み込みを待つ
+window.addEventListener('load', init);
+// リサイズイベント発生時に実行
+window.addEventListener('resize', onResize);
