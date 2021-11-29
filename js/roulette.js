@@ -3,7 +3,7 @@ var render;
 var camera;
 var scene;
 var rouletteGroup;
-// ゲームの状態
+// ゲームの状態 0=待機状態 1=加速状態 2=減速状態
 var gameStatus = 0;
 // ルーレットの速度
 var speed = 0;
@@ -17,6 +17,10 @@ var speedCurve = 0;
 var speedCurveCurvePlus = 0.00003;
 // ルーレットの加速度の微分の減速時の微分
 var speedCurveCurveMinus = 0.0000027;
+// 候補数の最大値
+var cohoMax = 10;
+// 初期リスト
+var initList = ["陳麻婆豆腐", "McDonald", "五右衛門"];
 
 // URLのパース
 function getParam(name, url) {
@@ -31,36 +35,56 @@ function getParam(name, url) {
 
 // URLからの情報取得処理
 function setParameter() {
-  query = getParam("list", location.href)
-  list = query == null ? ["陳麻婆豆腐", "McDonald", "五右衛門"] : list = query.split(",")
-  lunchBox = document.getElementById("input_lunchbox")
+  query = getParam("list", location.href);
+  list = query == null ? initList : list = query.split(",");
+  lunchBox = document.getElementById("input_lunchbox");
+  count = 0
   for (lunchstr of list) {
+    // 最大数を超えないように
+    if (count++ >= cohoMax) {
+      break;
+    }
     // ランチのHTML要素を追加する。
-    lunch = document.createElement('div')
-    lunch.setAttribute("class", "input_lunch")
+    lunch = document.createElement('div');
+    lunch.setAttribute("class", "input_lunch");
+    // form作り
+    text = document.createElement("input");
+    text.setAttribute("type", "text");
+    text.setAttribute("class", "form-control");
+    text.setAttribute("value", lunchstr);
+    lunch.appendChild(text);
+    // +ボタン作り
+    lunchBtn1 = document.createElement("input");
+    lunchBtn1.setAttribute("type", "button");
+    lunchBtn1.setAttribute("value", "＋");
+    lunchBtn1.setAttribute("class", "add lunchBtn");
+    lunch.appendChild(lunchBtn1);
+    // -ボタン作り
+    lunchBtn2 = document.createElement("input");
+    lunchBtn2.setAttribute("type", "button");
+    lunchBtn2.setAttribute("value", "－");
+    lunchBtn2.setAttribute("class", "del lunchBtn");
+    lunch.appendChild(lunchBtn2);
 
-    text = document.createElement("input")
-    text.setAttribute("type", "text")
-    text.setAttribute("class", "form-control")
-    text.setAttribute("value", lunchstr)
-    lunch.appendChild(text)
-
-    lunchBtn1 = document.createElement("input")
-    lunchBtn1.setAttribute("type", "button")
-    lunchBtn1.setAttribute("value", "＋")
-    lunchBtn1.setAttribute("class", "add lunchBtn")
-    lunch.appendChild(lunchBtn1)
-
-    lunchBtn2 = document.createElement("input")
-    lunchBtn2.setAttribute("type", "button")
-    lunchBtn2.setAttribute("value", "－")
-    lunchBtn2.setAttribute("class", "del lunchBtn")
-    lunch.appendChild(lunchBtn2)
-
-    lunchBox.appendChild(lunch)
+    lunchBox.appendChild(lunch);
   }
 
-  setUrlBox()
+  setUrlBox();
+}
+
+// URLボックスの設定、URLの書き換え
+function setUrlBox() {
+  lunch_children = document.getElementById("input_lunchbox").children
+  new_query = "";
+  for (c of lunch_children) {
+    new_query += encodeURIComponent(String($(c).find(".form-control")[0].value)) + ",";
+  }
+  new_query = new_query.substring(0, new_query.length - 1);
+  document.getElementById("url_box").value = location.origin + location.pathname + "?list=" + new_query;
+  const url = new URL(location);
+  url.searchParams.set("list", new_query);
+  // URLの書き換え
+  history.replaceState(null, document.title, location.pathname + "?list=" + new_query);
 }
 
 // キャンバスの初期設定
@@ -100,7 +124,7 @@ function setThree() {
   addCone(scene, ereaSize);
 
   // 初期状態のルーレット作成
-  gameStart()
+  gameStart();
 
   tick();
 
@@ -108,15 +132,15 @@ function setThree() {
   function tick() {
     renderer.render(scene, camera);
     if (gameStatus === 1) {
-      speedCurve = Math.max(0, Math.min(speedCurve + speedCurveCurvePlus, speedPlus))
-      speed = Math.max(0, Math.min(speed + speedCurve, speedMax))
+      speedCurve = Math.max(0, Math.min(speedCurve + speedCurveCurvePlus, speedPlus));
+      speed = Math.max(0, Math.min(speed + speedCurve, speedMax));
       rouletteGroup.rotation.y = rouletteGroup.rotation.y + Math.PI * speed
     } else if (gameStatus === 2) {
-      speedCurve = Math.max(speedPlus / 80, Math.min(speedCurve - speedCurveCurveMinus, speedPlus))
-      speed = Math.max(0, Math.min(speed - speedCurve, speedMax))
+      speedCurve = Math.max(speedPlus / 80, Math.min(speedCurve - speedCurveCurveMinus, speedPlus));
+      speed = Math.max(0, Math.min(speed - speedCurve, speedMax));
       rouletteGroup.rotation.y = rouletteGroup.rotation.y + Math.PI * speed
       if (speed === 0) {
-        gameEnd()
+        gameEnd();
       }
     }
     requestAnimationFrame(tick);
@@ -169,7 +193,7 @@ function gameStart() {
       memo = h;
     }
   }
-
+  // データと色リストを持って、円盤作り
   addCylinders(lunch, color);
 }
 
@@ -210,12 +234,10 @@ function addCylinders(lunch, color) {
         });
         var materials = [
           new THREE.MeshBasicMaterial({
-            color: 0xFFFFFF,
-            overdraw: 0.5
+            color: 0xFFFFFF
           }),
           new THREE.MeshBasicMaterial({
-            color: 0xAAAAAA,
-            overdraw: 0.5
+            color: 0xAAAAAA
           })
         ];
         var textMesh = new THREE.Mesh(textGeometry, materials);
@@ -223,7 +245,7 @@ function addCylinders(lunch, color) {
         // 文字オブジェクトのサイズ取得と微調整
         textMesh.geometry.computeBoundingBox();
         var box = textMesh.geometry.boundingBox.clone();
-        var center = box.getCenter();
+        var center = box.getCenter(new THREE.Vector3());
         textMesh.position.set(-center.x, 0, center.z * 2);
         textMesh.rotation.set(-Math.PI * 0.5, 0, 0);
         textMesh.castShadow = true;
@@ -237,7 +259,7 @@ function addCylinders(lunch, color) {
         rouletteGroupchild.position.set(han * Math.cos(txtrad), 40, han * Math.sin(-txtrad));
 
         // 文字オブジェクト自体の回転
-        var txtrad2 = -(Math.PI * 2 * i / lunch.length + Math.PI * 1 / lunch.length)
+        var txtrad2 = -(Math.PI * 2 * i / lunch.length + Math.PI * 1 / lunch.length);
         rouletteGroupchild.rotation.set(0, txtrad2, 0);
 
         // 追加
@@ -267,7 +289,7 @@ function addFloor(scene, ereaSize) {
     color: 0x66BBDD,
     roughness: 0.03,
     metalness: 0.75
-  })
+  });
   const floorXZ = new THREE.Mesh(floorGeometry, floorMaterial);
   floorXZ.rotation.x = -Math.PI / 2;
   floorXZ.position.set(0, -ereaSize / 2, 0);
@@ -302,9 +324,7 @@ function addFloor(scene, ereaSize) {
 function addCone(scene) {
   var geometry = new THREE.ConeBufferGeometry(3, 40, 30);
   var material = new THREE.MeshBasicMaterial({
-    color: 0xffff00,
-    roughness: 0.03,
-    metalness: 0.75
+    color: 0xffff00
   });
   var cone = new THREE.Mesh(geometry, material);
   cone.position.set(0, 65, -80);
@@ -316,7 +336,7 @@ function addCone(scene) {
 function gameEnd() {
   // 判定
   var list = $("#input_lunchbox").find(".form-control");
-  var quo = rouletteGroup.rotation.y / (Math.PI * 2)
+  var quo = rouletteGroup.rotation.y / (Math.PI * 2);
   var r = Math.floor((quo - Math.floor(quo)) * list.length);
   gameStatus = 0;
 
@@ -324,6 +344,7 @@ function gameEnd() {
   for (var i in list) {
     list[i].disabled = false;
   }
+
   // ボタン設定
   $("#button").prop("disabled", false);
   $("#button").removeClass("dark");
@@ -336,31 +357,32 @@ function gameEnd() {
 }
 
 // 各イベントの設定
-function setJquery() {
+function setEvent() {
   // START/STOPボタンの処理
   $(document).ready(function() {
-      $("#button").on('click', function() {
-        if (gameStatus === 0) {
-          gameStart()
-          var inputList = $("#input_lunchbox").find(".form-control");
-          for (var i = 0; i < inputList.length; i++) {
-            inputList[i].disabled = true;
-          }
-          this.value = "STOP";
-        } else if (gameStatus === 1) {
-          this.disabled = true;
-          this.classList.add("dark");
+    $("#button").on('click', function() {
+      if (gameStatus === 0) {
+        gameStart();
+        var inputList = $("#input_lunchbox").find(".form-control");
+        for (var i = 0; i < inputList.length; i++) {
+          inputList[i].disabled = true;
         }
-        gameStatus++;
-      });
-    })
-    // 追加ボタンの処理
+        this.value = "STOP";
+      } else if (gameStatus === 1) {
+        this.disabled = true;
+        this.classList.add("dark");
+      }
+      setUrlBox();
+      gameStatus++;
+    });
+  });
+  // 追加ボタンの処理
   $(document).on("click", ".add", function() {
     if (gameStatus !== 0) {
       return;
     }
     var count = $(this).parent().parent().children().length;
-    if (count < 8) {
+    if (count < cohoMax) {
       var newParent = $(this).parent().clone(true);
       newParent.prop("id", "input_lunch-" + (count + 1));
       var newControl = newParent.find(".form-control")[0];
@@ -381,21 +403,17 @@ function setJquery() {
     }
   });
   // URLボックスの更新処理
-  $(document).on("focus", "#url_box", function() {
-    lunch_children = document.getElementById("input_lunchbox").children
-    new_query = location.origin + location.pathname + "?list=";
-    for (c of lunch_children) {
-      new_query += encodeURIComponent(String($(c).find(".form-control")[0].value)) + ",";
-    }
-    document.getElementById("url_box").value = new_query.substring(0, new_query.length - 1);
-  });
+  $(document).on("focus", "#url_box", setUrlBox);
+  $(document).on("focusout", ".form-control", setUrlBox);
+  $(document).on("click", ".add", setUrlBox);
+  $(document).on("click", ".del", setUrlBox);
 }
 
 // 初期表示時の操作
 function init() {
-  setParameter()
-  setThree()
-  setJquery()
+  setParameter();
+  setThree();
+  setEvent();
 }
 
 // ページの読み込みを待つ
