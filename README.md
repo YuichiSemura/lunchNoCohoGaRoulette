@@ -3,7 +3,7 @@
 「陳麻婆豆腐に行きましょう。」  
 基本見たままです。大した機能はないです。少しは遊んでやってください。
 
-https://github.com/YuichiSemura/lunchNoCohoGaRoulette
+https://yuichisemura.github.io/lunchNoCohoGaRoulette/
 
 ![favicon](./favicon.png)
 
