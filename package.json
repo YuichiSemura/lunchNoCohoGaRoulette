@@ -6,7 +6,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc && vite build",
+    "build": "vue-tsc && vite build && cp -R json dist",
     "preview": "vite preview",
     "fmt": "npx prettier --w 'src/**/*.{ts,vue}'"
   },
