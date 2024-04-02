@@ -1,17 +1,17 @@
 <script setup lang="ts">
 import { TresCanvas, useRenderLoop } from '@tresjs/core';
-import { computed, reactive, ref, watch, watchEffect } from 'vue';
+import { computed, reactive, ref, watchEffect } from 'vue';
 import { BasicShadowMap, SRGBColorSpace, NoToneMapping } from 'three';
 import { OrbitControls, Text3D, Stars } from '@tresjs/cientos';
 import { useControls } from '@tresjs/leches';
 
 // 色の設定
-const darkMode = ref(Boolean(localStorage.getItem("darkmode")) ?? false);
+const darkMode = ref(Boolean(JSON.parse(localStorage.getItem("darkmode") ?? 'true')));
 const colorTheme = computed(() => {
   return darkMode.value ? 'dark' : 'light';
 });
-watch(darkMode, ()=>{
-  localStorage.setItem("darkmode", "true");
+watchEffect(()=>{
+  localStorage.setItem("darkmode", String(darkMode.value));
 })
 
 const starRotationY = ref(0);
