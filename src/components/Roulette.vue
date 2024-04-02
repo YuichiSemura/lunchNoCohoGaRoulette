@@ -356,7 +356,7 @@ watchEffect(() => {
           <Suspense>
             <Text3D
               :text="String(i + 1)"
-              font="/json/helvetiker_bold.typeface.json"
+              font="./json/helvetiker_bold.typeface.json"
               :size="12"
               :height="5"
               :curveSegments="12"
