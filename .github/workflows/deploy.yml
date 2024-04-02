@@ -41,6 +41,7 @@ jobs:
         run: |
           npm install
           npm run build
+          sed -i '' 's/\/asset/\.\/asset/g' ./dist/index.html
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v1
