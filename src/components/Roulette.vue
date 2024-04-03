@@ -131,7 +131,7 @@ const getParam = (name: string, url: string) => {
 // URLからの情報取得処理
 const setParameter = () => {
   const query = getParam('list', location.href);
-  return query == null ? initList : query.split(',');
+  return query == null ? initList.map((v)=> v) : query.split(',');
 };
 
 // 色のランダム生成
@@ -169,8 +169,12 @@ const hslMapForCylinder = (h: number) => {
   return `hsl(${h}, ${hslForCylinder.value})`;
 };
 
-const hslMapForTextField = (h: number) => {
-  return `hsl(${h}, ${hslForTextField.value})`;
+const hslMapForTextField = (ind: number) => {
+  return ind < colorViewList.value.length 
+    ? `hsl(${colorViewList.value[ind]}, ${hslForTextField.value})` 
+    : darkMode.value 
+    ? '#CCCCCC'
+    : '#FFFFFF';
 };
 
 const addLunch = () => {
@@ -427,7 +431,7 @@ watchEffect(() => {
             density="compact"
             hide-details
             variant="outlined"
-            :bg-color="hslMapForTextField(colorViewList[index])"
+            :bg-color="hslMapForTextField(index)"
           >
             <template v-slot:append>
               <v-btn
