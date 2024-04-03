@@ -7,6 +7,13 @@ https://yuichisemura.github.io/lunchNoCohoGaRoulette/
 
 ![favicon](./favicon.png)
 
+## 更新
+
+- ver 2.0
+  - ルーレットが全画面になりました。
+  - レスポンシブデザインに対応しました。iPhone 12 Pro での利用をもとに調整しています。
+  - ダークモードに対応しました。
+
 ## 機能の説明
 
 ほぼランダムで何かを決めたいときに使えるツールです。ルーレットとは元来そういうものですね。
@@ -19,22 +26,42 @@ https://yuichisemura.github.io/lunchNoCohoGaRoulette/
   - マウスやタッチではルーレットの結果を操作することは出来ません。
 - URLにリスト情報を含めることが出来るため、URLでのリストの復元が可能です。＝他人への共有が簡単に行えます。
 
-ver 2.0
+## 今後の改善案
 
-- ダークモードに対応しました。
+- ダークモードにちなんだ楽しい機能
+- 飲み会などの利用可能性を考え、接待モードを追加する
 
-## 今後の課題
+## 技術
 
-- スマホでの利用を考え、ルーレットのみをズームアップする機能を追加する。
-- 飲み会などの利用可能性を考え、接待モードを追加する。
-
-## 実装
-
-ver 2.0 で使用技術を大幅に変更しました。追記します
 キャンバス部分に、3Dライブラリの three.js を使用しています。
 
-## development
+- ver 2.0 で使用技術を大幅に変更しました
+  - Vue3 + Vuetify3
+  - TresJS (three.js の Vue.js 用ラッパーライブラリ。素晴らしい)
+  - Vite
+- ver 1.0 の技術については以下の記事で説明しています。
+  - [three.js を使って簡単な 3D ルーレットアプリを作った](https://qiita.com/ychNext9/items/799dfe399c138230bd7c)
+
+## 開発
+
+GitHub Actions におけるとあるバグに遭遇したため、package-lock.jsonをコミットから外しています。
+
+install
 
 ```sh
 npm install
+```
+
+run
+
+```sh
+vite
+or
+npm run dev
+```
+
+build
+
+```
+npm run build
 ```
