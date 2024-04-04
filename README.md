@@ -44,7 +44,7 @@ https://yuichisemura.github.io/lunchNoCohoGaRoulette/
 
 ## 開発
 
-GitHub Actions におけるとあるバグに遭遇したため、package-lock.jsonをコミットから外しています。
+vite のインストールが必要
 
 install
 
