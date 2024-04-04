@@ -39,7 +39,7 @@ jobs:
       - name: npm install, yarn build
         id: build
         run: |
-          npm install
+          npm ci
           npm run build
           sed -i 's/\/asset/\.\/asset/g' ./dist/index.html
 
