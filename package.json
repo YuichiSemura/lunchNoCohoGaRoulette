@@ -16,6 +16,7 @@
     "@tresjs/leches": "^0.14.0",
     "three": "^0.159.0",
     "vue": "^3.3.9",
+    "vuedraggable": "^4.1.0",
     "vuetify": "^3.5.13"
   },
   "devDependencies": {

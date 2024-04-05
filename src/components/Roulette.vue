@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import draggable from "vuedraggable";
 import { TresCanvas, useRenderLoop } from '@tresjs/core';
 import { computed, reactive, ref, watchEffect } from 'vue';
 import { BasicShadowMap, SRGBColorSpace, NoToneMapping } from 'three';
@@ -158,6 +159,16 @@ const lunchList = ref<string[]>(setParameter());
 const colorList = ref<number[]>(initColors(lunchList.value.length));
 const lunchViewList = ref<string[]>(setParameter());
 const colorViewList = ref<number[]>(initColors(lunchList.value.length));
+
+// drag
+const isDragging = ref(false);
+const dragOptions = {
+  animation: 200,
+  group: "lunch",
+  disabled: false,
+  ghostClass: "ghost"
+}
+
 // 候補数の最大値
 const cohoMax = 10;
 
@@ -404,7 +415,12 @@ watchEffect(() => {
           </span>
         </template>
       </v-app-bar>
-      <v-navigation-drawer v-model="drawer" permanent :color="drawerColor">
+      <v-navigation-drawer 
+        v-model="drawer" 
+        permanent
+        :color="drawerColor"
+        width="280"
+        >
         <v-list-item class="mt-2 d-none d-sm-block"
           ><v-btn @click="dialogHelp = true" variant="elevated" block size="x-large" :color="helpBtnColor"
             >遊び方</v-btn
@@ -425,27 +441,38 @@ watchEffect(() => {
         <v-list-item>
           <h3>候補</h3>
         </v-list-item>
-        <v-list-item v-for="(_, index) in lunchViewList">
-          <v-text-field
-            v-model="lunchViewList[index]"
-            density="compact"
-            hide-details
-            variant="outlined"
-            :bg-color="hslMapForTextField(index)"
+        <draggable
+          v-model="lunchViewList"
+          v-bind="dragOptions"
+          handle=".handle"
+          item-key="."
           >
-            <template v-slot:append>
-              <v-btn
-                density="compact"
-                size="large"
-                icon="mdi-delete"
-                color="red-lighten-2"
-                variant="text"
-                @click="removeLunch(index)"
-                :disabled="disabledRemoveLunch"
-              ></v-btn>
-            </template>
-          </v-text-field>
-        </v-list-item>
+          <template #item="{ element, index }">
+            <v-list-item class="list-group-item">
+              <v-text-field
+              v-model="lunchViewList[index]"
+              density="compact"
+              hide-details
+              variant="outlined"
+              :bg-color="hslMapForTextField(index)"
+              >
+                <template v-slot:prepend>
+                  <v-icon icon="mdi-menu" class="handle"></v-icon>
+                </template>
+                <template v-slot:append>
+                  <v-btn
+                    density="compact"
+                    icon="mdi-delete"
+                    color="red-lighten-2"
+                    variant="text"
+                    @click="removeLunch(index)"
+                    :disabled="disabledRemoveLunch"
+                  ></v-btn>
+                </template>
+              </v-text-field>
+            </v-list-item>
+          </template>
+        </draggable>
         <v-list-item class="text-center">
           <v-btn
             density="compact"
@@ -551,5 +578,22 @@ watchEffect(() => {
 
 .navigation > * {
   pointer-events: auto;
+}
+
+.flip-list-move {
+  transition: transform 0.5s;
+}
+
+.no-move {
+  transition: transform 0s;
+}
+
+.ghost{
+  opacity: 0.5;
+  background: #c8ebfb;
+}
+
+.list-group-item i {
+  cursor: move;
 }
 </style>
