@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import draggable from "vuedraggable";
 import { TresCanvas, useRenderLoop } from '@tresjs/core';
-import { computed, reactive, ref, watchEffect } from 'vue';
+import { computed, reactive, ref, watchEffect, onMounted } from 'vue';
 import { BasicShadowMap, SRGBColorSpace, NoToneMapping } from 'three';
 import { OrbitControls, Text3D, Stars } from '@tresjs/cientos';
 import { useControls } from '@tresjs/leches';
+
+const WEBSOCKET_URL = "ws://192.168.11.4:3000"
 
 // 色の設定
 const darkMode = ref(Boolean(JSON.parse(localStorage.getItem("darkmode") ?? 'true')));
@@ -235,10 +237,9 @@ const result = ref('');
 
 const rouletteBtnClick = () => {
   if (gameStatus.value === 0) {
-    gameStatus.value = 1;
     gameStart();
   } else if (gameStatus.value === 1) {
-    gameStatus.value = 2;
+    gameStop();
   }
 };
 
@@ -249,7 +250,14 @@ const gameStart = () => {
   const colors = initColors(lunchList.value.length);
   colorList.value = colors;
   colorViewList.value = colors.map((v) => v);
+  gameStatus.value = 1;
+  sendMessage({'messageType': 'start', 'content': {'lunchList': lunchList.value, 'colorList': colorList.value}});
 };
+
+const gameStop = () => {
+  gameStatus.value = 2;
+  sendMessage({'messageType': 'stop', 'content': {'rouletteGroupRotationY': rouletteGroupRotationY.value, 'speed': speed.value}});
+}
 
 const rouletteBtnColor = computed(() => {
   return gameStatus.value === 0
@@ -322,6 +330,71 @@ watchEffect(() => {
   // URLの書き換え
   history.replaceState(null, document.title, location.pathname + '?list=' + url_query.value);
 });
+
+onMounted(() => {
+  connectWebSocket();
+});
+
+type StartContent = {
+  lunchList: string[];
+  colorList: number[];
+}
+type StopContent = {
+  rouletteGroupRotationY: number;
+  speed: number;
+}
+type Message = {
+  messageType: 'start';
+  content: StartContent;
+} | {
+  messageType: 'stop';
+  content: StopContent;
+}
+
+// Websocket
+const websocket = ref<WebSocket | null>(null);
+// WebSocketの接続を確立する関数
+const connectWebSocket = () => {
+  websocket.value = new WebSocket(WEBSOCKET_URL);
+
+  websocket.value.onopen = () => {
+    console.log('WebSocket connected');
+  };
+
+  websocket.value.onmessage = (event) => {
+    console.log(event.data);
+    const receivedMessage: Message = JSON.parse(event.data);
+    modeChangeByWebsocket(receivedMessage);
+  };
+
+  websocket.value.onclose = () => {
+    console.log('WebSocket disconnected');
+  };
+};
+
+const modeChangeByWebsocket = (message: Message) => {
+  if(message.messageType === 'start' && gameStatus.value === 0){
+    lunchViewList.value = message.content.lunchList;
+    lunchList.value = message.content.lunchList.map((v)=>v);
+    colorViewList.value = message.content.colorList;
+    colorList.value = message.content.colorList.map((v)=>v);
+    gameStatus.value = 1;
+  } else if(message.messageType === 'stop' && gameStatus.value === 1){
+    rouletteGroupRotationY.value = message.content.rouletteGroupRotationY;
+    speed.value = message.content.speed;
+    gameStatus.value = 2;
+  }
+}
+
+
+// メッセージを送る部分
+const sendMessage = (message: Message) => {
+  if (websocket.value && websocket.value.readyState === WebSocket.OPEN) {
+    websocket.value.send(JSON.stringify(message));
+  } else {
+    console.error('WebSocket connection is not open.');
+  }
+};
 </script>
 
 <template>
