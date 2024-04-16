@@ -447,17 +447,19 @@ watchEffect(() => {
           handle=".handle"
           item-key="."
           >
-          <template #item="{ element, index }">
+          <template #item="{ _, index }">
             <v-list-item class="list-group-item">
               <v-text-field
               v-model="lunchViewList[index]"
               density="compact"
               hide-details
               variant="outlined"
+              :disabled="!isPrepareStatus"
               :bg-color="hslMapForTextField(index)"
               >
                 <template v-slot:prepend>
-                  <v-icon icon="mdi-menu" class="handle"></v-icon>
+                  <v-icon v-if="isPrepareStatus" icon="mdi-menu" class="handle"></v-icon>
+                  <v-icon v-else icon="mdi-menu"></v-icon>
                 </template>
                 <template v-slot:append>
                   <v-btn
