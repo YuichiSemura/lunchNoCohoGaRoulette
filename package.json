@@ -28,7 +28,7 @@
     "typescript": "^5.3.2",
     "vite": "^5.0.4",
     "vite-plugin-glsl": "^1.2.0",
-    "vue-tsc": "^1.8.24"
+    "vue-tsc": "^2.2.10"
   },
   "optionalDependencies": {
     "@rollup/rollup-linux-x64-gnu": "4.6.1"
