@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "vue-tsc && vite build && cp -R json dist",
     "preview": "vite preview",
-    "lint": "biome lint .",
+    "lint": "biome lint src/",
     "format": "biome format . --write"
   },
   "dependencies": {
