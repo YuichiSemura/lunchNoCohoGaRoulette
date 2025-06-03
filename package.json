@@ -8,12 +8,13 @@
     "dev": "vite",
     "build": "vue-tsc && vite build && cp -R json dist",
     "preview": "vite preview",
-    "fmt": "npx prettier --w 'src/**/*.{ts,vue}'"
+    "lint": "biome lint src/",
+    "format": "biome format . --write"
   },
   "dependencies": {
-    "@tresjs/cientos": "^3.6.0",
-    "@tresjs/core": "^3.5.1",
-    "@tresjs/leches": "^0.14.0",
+    "@tresjs/cientos": "^4.3.1",
+    "@tresjs/core": "^4.3.5",
+    "@tresjs/leches": "latest",
     "three": "^0.159.0",
     "vue": "^3.3.9",
     "vuedraggable": "^4.1.0",
@@ -22,17 +23,12 @@
   "devDependencies": {
     "@mdi/font": "^7.4.47",
     "@types/three": "^0.159.0",
-    "@typescript-eslint/eslint-plugin": "^7.5.0",
-    "@typescript-eslint/parser": "^7.5.0",
     "@vitejs/plugin-vue": "^4.5.1",
-    "eslint": "^8.57.0",
-    "eslint-config-prettier": "^9.1.0",
-    "eslint-plugin-vue": "^9.24.0",
-    "prettier": "^3.2.5",
+    "@biomejs/biome": "^1.4.0",
     "typescript": "^5.3.2",
     "vite": "^5.4.6",
     "vite-plugin-glsl": "^1.2.0",
-    "vue-tsc": "^1.8.24"
+    "vue-tsc": "^2.2.10"
   },
   "optionalDependencies": {
     "@rollup/rollup-linux-x64-gnu": "4.6.1"
