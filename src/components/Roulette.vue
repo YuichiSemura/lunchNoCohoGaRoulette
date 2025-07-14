@@ -2,7 +2,7 @@
 import draggable from "vuedraggable";
 import { TresCanvas, useRenderLoop } from '@tresjs/core';
 import { computed, reactive, ref, watchEffect } from 'vue';
-import { BasicShadowMap, SRGBColorSpace, NoToneMapping } from 'three';
+import { BasicShadowMap, SRGBColorSpace, NoToneMapping, Vector3, Quaternion, Euler } from 'three';
 import { OrbitControls, Text3D, Stars } from '@tresjs/cientos';
 import { useControls } from '@tresjs/leches';
 
@@ -16,6 +16,52 @@ watchEffect(()=>{
 })
 
 const starRotationY = ref(0);
+const mirrorBallRotationY = ref(0);
+const mirrorBallRotationX = ref(0);
+const colorTime = ref(0);
+
+// 結果Modal用のアニメーション変数
+const resultModalAnimation = ref(false);
+const fireworksAnimation = ref(false);
+const confettiAnimation = ref(false);
+
+// カラフルなライトの色計算
+const getColorfulLight = (offset: number) => {
+  const hue = (colorTime.value * 0.001 + offset) % 1;
+  return `hsl(${hue * 360}, 100%, 70%)`;
+};
+
+// 球面座標でタイルの位置と回転を計算
+const getMirrorTileTransform = (index: number, total: number) => {
+  const ballRadius = originalAreaSize * 0.164;
+
+  const golden_angle = Math.PI * (3 - Math.sqrt(5));
+  const y = 1 - (index / (total - 1)) * 2;
+  const radius = Math.sqrt(1 - y * y);
+
+  const theta = golden_angle * index;
+
+  const x = Math.cos(theta) * radius;
+  const z = Math.sin(theta) * radius;
+
+  const position = [x * ballRadius, y * ballRadius, z * ballRadius];
+
+  // 法線ベクトル
+  const normal = new Vector3(x, y, z).normalize();
+
+  // デフォルトの面の向きを z+ と仮定
+  const defaultDirection = new Vector3(0, 0, 1);
+
+  // タイルを球面に沿って向けるためのクォータニオン
+  const quaternion = new Quaternion().setFromUnitVectors(defaultDirection, normal);
+
+  const euler = new Euler().setFromQuaternion(quaternion, 'XYZ');
+
+  return {
+    position: position as [number, number, number],
+    rotation: [euler.x, euler.y, euler.z] as [number, number, number],
+  };
+};
 
 const colorThemeMap = {
   light: {
@@ -95,9 +141,10 @@ const state = reactive({
   toneMapping: NoToneMapping,
 });
 
-const areaSize = 300;
+const areaSize = 600;
+const originalAreaSize = 300; // ルーレット、文字、カメラ用の元のサイズ
 type ThreeNumber = [number, number, number];
-const cameraInitialPosition: ThreeNumber = [areaSize * 0.3, areaSize * 0.6, areaSize * 0.8];
+const cameraInitialPosition: ThreeNumber = [originalAreaSize * 0.3, originalAreaSize * 0.6, originalAreaSize * 0.8];
 
 const pointLightIntensity = areaSize * 4;
 const pointLightDistance = areaSize * 3;
@@ -161,7 +208,6 @@ const lunchViewList = ref<string[]>(setParameter());
 const colorViewList = ref<number[]>(initColors(lunchList.value.length));
 
 // drag
-const isDragging = ref(false);
 const dragOptions = {
   animation: 200,
   group: "lunch",
@@ -273,6 +319,19 @@ const gameEnd = () => {
   result.value = lunchList.value[index];
   gameStatus.value = 0;
   dialog.value = true;
+  
+  // ダークモード時の派手な演出を開始
+  if (darkMode.value) {
+    resultModalAnimation.value = true;
+    fireworksAnimation.value = true;
+    confettiAnimation.value = true;
+    
+    // 6秒後にアニメーションを停止
+    setTimeout(() => {
+      fireworksAnimation.value = false;
+      confettiAnimation.value = false;
+    }, 6000);
+  }
 };
 
 const drawer = ref(true);
@@ -291,8 +350,15 @@ const speedCurve = ref(0);
 const speedCurveCurvePlus = 0.00003;
 // ルーレットの加速度の微分の減速時の微分
 const speedCurveCurveMinus = 0.0000027;
-onLoop(({ elapsed }) => {
-  starRotationY.value += 0.000001 * elapsed;
+onLoop(({ delta }) => {
+  starRotationY.value += 0.001 * delta;
+  
+  // ミラーボールの回転速度：基本速度 + ルーレット回転速度に比例
+  const rouletteSpeedMultiplier = speed.value * 20; // ルーレット速度を20倍に増幅（2倍に変更）
+  mirrorBallRotationY.value += (0.5 + rouletteSpeedMultiplier) * delta;
+  mirrorBallRotationX.value += (0.3 + rouletteSpeedMultiplier * 0.6) * delta;
+  
+  colorTime.value += delta;
   if (gameStatus.value === 1) {
     speedCurve.value = Math.max(0, Math.min(speedCurve.value + speedCurveCurvePlus, speedPlus.value));
     speed.value = Math.max(0, Math.min(speed.value + speedCurve.value, speedMax.value));
@@ -340,15 +406,19 @@ watchEffect(() => {
       />
       <TresMesh v-for="item in floorConfigList" :position="item.position" :rotation="item.rotation">
         <TresPlaneGeometry :args="[areaSize, areaSize]" />
-        <TresMeshStandardMaterial :color="floorColor" :roughness="floorRoughness" :metalness="floorMetalness" />
+        <TresMeshStandardMaterial 
+          :color="floorColor" 
+          :roughness="darkMode ? 0.8 : floorRoughness" 
+          :metalness="darkMode ? 0.2 : floorMetalness" 
+        />
       </TresMesh>
       <TresGroup :rotation="[0, rouletteGroupRotationY, 0]">
         <TresMesh v-for="(item, index) in lunchColorList" :position="[0, 0, 0]">
           <TresCylinderGeometry
             :args="[
-              areaSize * 0.25,
-              areaSize * 0.25,
-              areaSize * 0.1,
+              originalAreaSize * 0.25,
+              originalAreaSize * 0.25,
+              originalAreaSize * 0.1,
               40,
               1,
               false,
@@ -365,7 +435,8 @@ watchEffect(() => {
         </TresMesh>
 
         <TresGroup
-          v-for="(item, i) in lunchList"
+          v-for="(_, i) in lunchList"
+          :key="i"
           :rotation="[0, -((Math.PI * 2 * i) / lunchList.length + (Math.PI * 1) / lunchList.length), 0]"
         >
           <Suspense>
@@ -376,7 +447,7 @@ watchEffect(() => {
               :height="5"
               :curveSegments="12"
               center
-              :position="[0, areaSize * 0.05, -areaSize * 0.16]"
+              :position="[0, originalAreaSize * 0.05, -originalAreaSize * 0.16]"
               :rotation="[-Math.PI * 0.5, 0, 0]"
             >
               <TresMeshStandardMaterial />
@@ -384,8 +455,8 @@ watchEffect(() => {
           </Suspense>
         </TresGroup>
       </TresGroup>
-      <TresMesh :position="[0, areaSize * 0.11, -areaSize * 0.23]" :rotation="[-Math.PI * 1.2, 0, 0]">
-        <TresConeGeometry :args="[3, areaSize * 0.1, areaSize * 0.075]"></TresConeGeometry>
+      <TresMesh :position="[0, originalAreaSize * 0.11, -originalAreaSize * 0.23]" :rotation="[-Math.PI * 1.2, 0, 0]">
+        <TresConeGeometry :args="[3, originalAreaSize * 0.1, originalAreaSize * 0.075]"></TresConeGeometry>
         <TresMeshStandardMaterial :color="'#ffff00'" :roughness="0.03" :metalness="0.7" />
       </TresMesh>
       <Stars
@@ -397,13 +468,127 @@ watchEffect(() => {
         :size="areaSize * 0.012"
         :size-attenuation="true"
       />
+      <!-- ミラーボール（ダークモード時のみ表示） -->
+      <TresGroup 
+        v-if="darkMode" 
+        :position="[0, areaSize * 0.26, 0]"
+        :rotation="[mirrorBallRotationX, mirrorBallRotationY, 0]"
+      >
+        
+        <!-- メインのミラーボール -->
+        <TresMesh>
+          <TresSphereGeometry :args="[originalAreaSize * 0.16, 32, 32]" />
+          <TresMeshStandardMaterial 
+            color="#C0C0C0" 
+            :metalness="1.0" 
+            :roughness="0.0"
+            :env-map-intensity="2.0"
+          />
+        </TresMesh>
+        
+        <!-- ミラーの小さなタイル -->
+        <TresMesh 
+          v-for="i in 250" 
+          :key="i"
+          :position="getMirrorTileTransform(i, 250).position"
+          :rotation="getMirrorTileTransform(i, 250).rotation"
+        >
+          <TresCircleGeometry :args="[originalAreaSize * 0.02, 16]" />
+          <TresMeshStandardMaterial 
+            :color="getColorfulLight(i * 0.004)"
+            :metalness="1.0" 
+            :roughness="0.0"
+            :emissive="getColorfulLight(i * 0.004)"
+            :emissive-intensity="1.3"
+          />
+        </TresMesh>
+      </TresGroup>
+      
+      <!-- 部屋全体を照らすディスコライト（ダークモード時のみ） -->
+      <TresGroup v-if="darkMode" :rotation="[0, rouletteGroupRotationY * 0.3, 0]">
+        <!-- 部屋の各角からの拡散光 -->
+        <TresPointLight
+          :position="[areaSize * 0.4, areaSize * 0.45, areaSize * 0.4]"
+          :color="getColorfulLight(0.1)"
+          :intensity="areaSize * 1.5"
+          :distance="areaSize * 2"
+          :decay="0.8"
+        />
+        <TresPointLight
+          :position="[-areaSize * 0.4, areaSize * 0.45, areaSize * 0.4]"
+          :color="getColorfulLight(0.3)"
+          :intensity="areaSize * 1.5"
+          :distance="areaSize * 2"
+          :decay="0.8"
+        />
+        <TresPointLight
+          :position="[areaSize * 0.4, areaSize * 0.45, -areaSize * 0.4]"
+          :color="getColorfulLight(0.6)"
+          :intensity="areaSize * 1.5"
+          :distance="areaSize * 2"
+          :decay="0.8"
+        />
+        <TresPointLight
+          :position="[-areaSize * 0.4, areaSize * 0.45, -areaSize * 0.4]"
+          :color="getColorfulLight(0.9)"
+          :intensity="areaSize * 1.5"
+          :distance="areaSize * 2"
+          :decay="0.8"
+        />
+        
+        <!-- 側面からの照明 -->
+        <TresPointLight
+          :position="[areaSize * 0.35, areaSize * 0.1, 0]"
+          :color="getColorfulLight(0.15)"
+          :intensity="areaSize * 1.2"
+          :distance="areaSize * 2.5"
+          :decay="1"
+        />
+        <TresPointLight
+          :position="[-areaSize * 0.35, areaSize * 0.1, 0]"
+          :color="getColorfulLight(0.45)"
+          :intensity="areaSize * 1.2"
+          :distance="areaSize * 2.5"
+          :decay="1"
+        />
+        <TresPointLight
+          :position="[0, areaSize * 0.1, areaSize * 0.35]"
+          :color="getColorfulLight(0.7)"
+          :intensity="areaSize * 1.2"
+          :distance="areaSize * 2.5"
+          :decay="1"
+        />
+        <TresPointLight
+          :position="[0, areaSize * 0.1, -areaSize * 0.35]"
+          :color="getColorfulLight(0.95)"
+          :intensity="areaSize * 1.2"
+          :distance="areaSize * 2.5"
+          :decay="1"
+        />
+        
+        <!-- 床からの間接照明 -->
+        <TresPointLight
+          :position="[areaSize * 0.2, -areaSize * 0.4, areaSize * 0.2]"
+          :color="getColorfulLight(0.2)"
+          :intensity="areaSize * 0.8"
+          :distance="areaSize * 1.8"
+          :decay="1.2"
+        />
+        <TresPointLight
+          :position="[-areaSize * 0.2, -areaSize * 0.4, -areaSize * 0.2]"
+          :color="getColorfulLight(0.8)"
+          :intensity="areaSize * 0.8"
+          :distance="areaSize * 1.8"
+          :decay="1.2"
+        />
+      </TresGroup>
     </TresCanvas>
     <div class="navigation">
       <v-app-bar app :color="appBarColor">
         <v-app-bar-nav-icon class="mr-3" variant="text" @click.stop="drawer = !drawer"></v-app-bar-nav-icon>
 
-        <div class="font-weight-bold d-flex d-sm-none">ランチの候補がルーレット ver2.0</div>
-        <h2 class="font-weight-bold d-none d-sm-flex">ランチの候補がルーレット ver2.0</h2>
+        <div class="font-weight-bold d-flex d-sm-none">ランチの候補がルーレット ver2.1</div>
+        <h2 class="font-weight-bold d-none d-sm-flex">ランチの候補がルーレット ver2.1</h2>
         <template v-slot:append>
           <span class="mr-2">
             <v-switch v-model="darkMode" inset hide-details>
@@ -447,7 +632,7 @@ watchEffect(() => {
           handle=".handle"
           item-key="."
           >
-          <template #item="{ _, index }">
+          <template #item="{ index }">
             <v-list-item class="list-group-item">
               <v-text-field
               v-model="lunchViewList[index]"
@@ -524,12 +709,48 @@ watchEffect(() => {
       </v-main>
     </div>
     <v-dialog v-model="dialog" width="20%" min-width="300">
-      <v-card class="pa-4" :color="dialogColor">
+      <v-card 
+        class="pa-4 result-modal" 
+        :class="{ 
+          'dark-mode-celebration': darkMode && resultModalAnimation,
+          'fireworks-bg': darkMode && fireworksAnimation 
+        }"
+        :color="dialogColor"
+      >
+        <!-- 花火エフェクト（ダークモード時のみ） -->
+        <div v-if="darkMode && fireworksAnimation" class="fireworks-container">
+          <div v-for="i in 8" :key="i" class="firework" :style="{ '--delay': i * 0.2 + 's' }"></div>
+        </div>
+        
+        <!-- 紙吹雪エフェクト（ダークモード時のみ） -->
+        <div v-if="darkMode && confettiAnimation" class="confetti-container">
+          <div v-for="i in 30" :key="i" class="confetti" :style="{ 
+            '--delay': '0s',
+            '--color': `hsl(${(i * 72) % 360}, 70%, 60%)`,
+            '--position': (Math.random() * 90 + 5) + '%',
+            '--start-y': (Math.random() * 200 - 200) + 'px'
+          }"></div>
+        </div>
+        
         <v-card-text>
-          <h2 class="text-center">{{ result }}</h2>
+          <h2 
+            class="text-center result-text"
+            :class="{ 
+              'celebration-text': darkMode && resultModalAnimation,
+              'pulse-animation': darkMode && resultModalAnimation 
+            }"
+          >
+            {{ result }}
+          </h2>
         </v-card-text>
         <template v-slot:actions>
-          <v-btn class="ms-auto" variant="tonal" text="Ok" @click="dialog = false"></v-btn>
+          <v-btn 
+            class="ms-auto celebration-btn" 
+            :class="{ 'glow-effect': darkMode && resultModalAnimation }"
+            variant="tonal" 
+            text="Ok" 
+            @click="dialog = false; resultModalAnimation = false"
+          ></v-btn>
         </template>
       </v-card>
     </v-dialog>
@@ -597,5 +818,189 @@ watchEffect(() => {
 
 .list-group-item i {
   cursor: move;
+}
+
+/* 結果Modalの派手なアニメーション（ダークモード時） */
+.result-modal {
+  position: relative;
+  overflow: hidden;
+}
+
+.dark-mode-celebration {
+  animation: modal-entrance 0.6s ease-out;
+  box-shadow: 0 0 30px rgba(255, 215, 0, 0.8), 0 0 60px rgba(255, 215, 0, 0.6) !important;
+}
+
+@keyframes modal-entrance {
+  0% { 
+    transform: scale(0.3) rotate(-10deg);
+    opacity: 0;
+  }
+  50% { 
+    transform: scale(1.1) rotate(5deg);
+  }
+  100% { 
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+.celebration-text {
+  background: linear-gradient(45deg, #FFD700, #FF6B6B, #4ECDC4, #45B7D1, #96CEB4, #FFEAA7);
+  background-size: 300% 300%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradient-shift 2s ease-in-out infinite;
+  font-weight: bold;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.pulse-animation {
+  animation: pulse-celebration 1s ease-in-out infinite alternate;
+}
+
+@keyframes pulse-celebration {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.1); }
+}
+
+/* 花火エフェクト */
+.fireworks-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.firework {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  animation: firework-explosion 1.5s ease-out infinite;
+  animation-delay: var(--delay);
+}
+
+.firework:nth-child(1) { top: 20%; left: 20%; background: #FF6B6B; }
+.firework:nth-child(2) { top: 30%; left: 80%; background: #4ECDC4; }
+.firework:nth-child(3) { top: 60%; left: 15%; background: #45B7D1; }
+.firework:nth-child(4) { top: 70%; left: 85%; background: #96CEB4; }
+.firework:nth-child(5) { top: 40%; left: 50%; background: #FFEAA7; }
+.firework:nth-child(6) { top: 80%; left: 60%; background: #FD79A8; }
+.firework:nth-child(7) { top: 25%; left: 70%; background: #FDCB6E; }
+.firework:nth-child(8) { top: 65%; left: 30%; background: #6C5CE7; }
+
+@keyframes firework-explosion {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+    box-shadow: 0 0 0 0 currentColor;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 1;
+    box-shadow: 
+      0 0 10px 5px currentColor,
+      15px 0 10px 3px currentColor,
+      -15px 0 10px 3px currentColor,
+      0 15px 10px 3px currentColor,
+      0 -15px 10px 3px currentColor,
+      10px 10px 10px 2px currentColor,
+      -10px -10px 10px 2px currentColor,
+      10px -10px 10px 2px currentColor,
+      -10px 10px 10px 2px currentColor;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+    box-shadow: 
+      0 0 15px 8px currentColor,
+      20px 0 15px 5px currentColor,
+      -20px 0 15px 5px currentColor,
+      0 20px 15px 5px currentColor,
+      0 -20px 15px 5px currentColor,
+      15px 15px 15px 3px currentColor,
+      -15px -15px 15px 3px currentColor,
+      15px -15px 15px 3px currentColor,
+      -15px 15px 15px 3px currentColor;
+  }
+}
+
+/* 紙吹雪エフェクト */
+.confetti-container {
+  position: absolute;
+  top: 20px;
+  left: 0;
+  width: 100%;
+  height: 110%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.confetti {
+  position: absolute;
+  width: 6px;
+  height: 12px;
+  background: var(--color);
+  animation: confetti-fall 6s linear infinite;
+  animation-delay: var(--delay);
+  top: var(--start-y);
+  left: var(--position);
+  
+}
+
+.confetti:nth-child(even) {
+  width: 4px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(0px) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(350px) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+/* ボタンのグローエフェクト */
+.glow-effect {
+  animation: button-glow 2s ease-in-out infinite alternate;
+}
+
+@keyframes button-glow {
+  0% {
+    box-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
+  }
+  100% {
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.8), 0 0 30px rgba(255, 215, 0, 0.6);
+  }
+}
+
+.fireworks-bg {
+  background: radial-gradient(circle at 50% 50%, 
+    rgba(255, 215, 0, 0.1) 0%, 
+    rgba(255, 107, 107, 0.05) 25%, 
+    rgba(78, 205, 196, 0.05) 50%, 
+    rgba(69, 183, 209, 0.05) 75%, 
+    transparent 100%);
+  animation: background-pulse 2s ease-in-out infinite alternate;
+}
+
+@keyframes background-pulse {
+  0% { background-size: 100% 100%; }
+  100% { background-size: 110% 110%; }
 }
 </style>
