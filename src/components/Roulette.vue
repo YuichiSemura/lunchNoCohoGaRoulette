@@ -28,7 +28,7 @@ const getColorfulLight = (offset: number) => {
 
 // 球面座標でタイルの位置と回転を計算
 const getMirrorTileTransform = (index: number, total: number) => {
-  const ballRadius = originalAreaSize * 0.082;
+  const ballRadius = originalAreaSize * 0.164;
 
   const golden_angle = Math.PI * (3 - Math.sqrt(5));
   const y = 1 - (index / (total - 1)) * 2;
@@ -336,7 +336,7 @@ onLoop(({ delta }) => {
   starRotationY.value += 0.001 * delta;
   
   // ミラーボールの回転速度：基本速度 + ルーレット回転速度に比例
-  const rouletteSpeedMultiplier = speed.value * 10; // ルーレット速度を10倍に増幅
+  const rouletteSpeedMultiplier = speed.value * 20; // ルーレット速度を20倍に増幅（2倍に変更）
   mirrorBallRotationY.value += (0.5 + rouletteSpeedMultiplier) * delta;
   mirrorBallRotationX.value += (0.3 + rouletteSpeedMultiplier * 0.6) * delta;
   
@@ -388,7 +388,11 @@ watchEffect(() => {
       />
       <TresMesh v-for="item in floorConfigList" :position="item.position" :rotation="item.rotation">
         <TresPlaneGeometry :args="[areaSize, areaSize]" />
-        <TresMeshStandardMaterial :color="floorColor" :roughness="floorRoughness" :metalness="floorMetalness" />
+        <TresMeshStandardMaterial 
+          :color="floorColor" 
+          :roughness="darkMode ? 0.9 : floorRoughness" 
+          :metalness="darkMode ? 0.1 : floorMetalness" 
+        />
       </TresMesh>
       <TresGroup :rotation="[0, rouletteGroupRotationY, 0]">
         <TresMesh v-for="(item, index) in lunchColorList" :position="[0, 0, 0]">
@@ -452,67 +456,10 @@ watchEffect(() => {
         :position="[0, areaSize * 0.4, 0]"
         :rotation="[mirrorBallRotationX, mirrorBallRotationY, 0]"
       >
-        <!-- ミラーボール周囲のカラフルなポイントライト -->
-        <TresPointLight
-          :position="[areaSize * 0.15, areaSize * 0.15, areaSize * 0.15]"
-          :color="getColorfulLight(0)"
-          :intensity="areaSize * 2"
-          :distance="areaSize * 2"
-          :decay="1.5"
-        />
-        <TresPointLight
-          :position="[-areaSize * 0.15, areaSize * 0.15, areaSize * 0.15]"
-          :color="getColorfulLight(0.25)"
-          :intensity="areaSize * 2"
-          :distance="areaSize * 2"
-          :decay="1.5"
-        />
-        <TresPointLight
-          :position="[areaSize * 0.15, areaSize * 0.15, -areaSize * 0.15]"
-          :color="getColorfulLight(0.5)"
-          :intensity="areaSize * 2"
-          :distance="areaSize * 2"
-          :decay="1.5"
-        />
-        <TresPointLight
-          :position="[-areaSize * 0.15, areaSize * 0.15, -areaSize * 0.15]"
-          :color="getColorfulLight(0.75)"
-          :intensity="areaSize * 2"
-          :distance="areaSize * 2"
-          :decay="1.5"
-        />
-        <TresPointLight
-          :position="[0, areaSize * 0.2, 0]"
-          :color="getColorfulLight(0.125)"
-          :intensity="areaSize * 1.8"
-          :distance="areaSize * 2.5"
-          :decay="1.2"
-        />
-        <TresPointLight
-          :position="[areaSize * 0.1, -areaSize * 0.05, 0]"
-          :color="getColorfulLight(0.375)"
-          :intensity="areaSize * 1.5"
-          :distance="areaSize * 2"
-          :decay="1.5"
-        />
-        <TresPointLight
-          :position="[-areaSize * 0.1, -areaSize * 0.05, 0]"
-          :color="getColorfulLight(0.625)"
-          :intensity="areaSize * 1.5"
-          :distance="areaSize * 2"
-          :decay="1.5"
-        />
-        <TresPointLight
-          :position="[0, -areaSize * 0.05, areaSize * 0.1]"
-          :color="getColorfulLight(0.875)"
-          :intensity="areaSize * 1.5"
-          :distance="areaSize * 2"
-          :decay="1.5"
-        />
         
         <!-- メインのミラーボール -->
         <TresMesh>
-          <TresSphereGeometry :args="[originalAreaSize * 0.08, 32, 32]" />
+          <TresSphereGeometry :args="[originalAreaSize * 0.16, 32, 32]" />
           <TresMeshStandardMaterial 
             color="#C0C0C0" 
             :metalness="1.0" 
@@ -528,7 +475,7 @@ watchEffect(() => {
           :position="getMirrorTileTransform(i, 250).position"
           :rotation="getMirrorTileTransform(i, 250).rotation"
         >
-          <TresCircleGeometry :args="[originalAreaSize * 0.01, 16]" />
+          <TresCircleGeometry :args="[originalAreaSize * 0.02, 16]" />
           <TresMeshStandardMaterial 
             :color="getColorfulLight(i * 0.004)"
             :metalness="1.0" 
@@ -540,94 +487,80 @@ watchEffect(() => {
       </TresGroup>
       
       <!-- 部屋全体を照らすディスコライト（ダークモード時のみ） -->
-      <TresGroup v-if="darkMode">
-        <!-- 部屋の四隅から拡散する光 -->
+      <TresGroup v-if="darkMode" :rotation="[0, rouletteGroupRotationY * 0.3, 0]">
+        <!-- 部屋の各角からの拡散光 -->
         <TresPointLight
-          :position="[areaSize * 0.8, areaSize * 0.6, areaSize * 0.8]"
+          :position="[areaSize * 0.4, areaSize * 0.45, areaSize * 0.4]"
           :color="getColorfulLight(0.1)"
-          :intensity="areaSize * 0.8"
-          :distance="areaSize * 3"
+          :intensity="areaSize * 1.5"
+          :distance="areaSize * 2"
           :decay="0.8"
         />
         <TresPointLight
-          :position="[-areaSize * 0.8, areaSize * 0.6, areaSize * 0.8]"
+          :position="[-areaSize * 0.4, areaSize * 0.45, areaSize * 0.4]"
           :color="getColorfulLight(0.3)"
-          :intensity="areaSize * 0.8"
-          :distance="areaSize * 3"
+          :intensity="areaSize * 1.5"
+          :distance="areaSize * 2"
           :decay="0.8"
         />
         <TresPointLight
-          :position="[areaSize * 0.8, areaSize * 0.6, -areaSize * 0.8]"
+          :position="[areaSize * 0.4, areaSize * 0.45, -areaSize * 0.4]"
           :color="getColorfulLight(0.6)"
-          :intensity="areaSize * 0.8"
-          :distance="areaSize * 3"
+          :intensity="areaSize * 1.5"
+          :distance="areaSize * 2"
           :decay="0.8"
         />
         <TresPointLight
-          :position="[-areaSize * 0.8, areaSize * 0.6, -areaSize * 0.8]"
+          :position="[-areaSize * 0.4, areaSize * 0.45, -areaSize * 0.4]"
           :color="getColorfulLight(0.9)"
-          :intensity="areaSize * 0.8"
-          :distance="areaSize * 3"
+          :intensity="areaSize * 1.5"
+          :distance="areaSize * 2"
           :decay="0.8"
         />
         
-        <!-- 床からの反射光 -->
+        <!-- 側面からの照明 -->
         <TresPointLight
-          :position="[areaSize * 0.3, -areaSize * 0.3, areaSize * 0.3]"
+          :position="[areaSize * 0.45, areaSize * 0.1, 0]"
           :color="getColorfulLight(0.15)"
-          :intensity="areaSize * 0.5"
-          :distance="areaSize * 2"
+          :intensity="areaSize * 1.2"
+          :distance="areaSize * 2.5"
           :decay="1"
         />
         <TresPointLight
-          :position="[-areaSize * 0.3, -areaSize * 0.3, areaSize * 0.3]"
+          :position="[-areaSize * 0.45, areaSize * 0.1, 0]"
           :color="getColorfulLight(0.45)"
-          :intensity="areaSize * 0.5"
-          :distance="areaSize * 2"
+          :intensity="areaSize * 1.2"
+          :distance="areaSize * 2.5"
           :decay="1"
         />
         <TresPointLight
-          :position="[areaSize * 0.3, -areaSize * 0.3, -areaSize * 0.3]"
-          :color="getColorfulLight(0.65)"
-          :intensity="areaSize * 0.5"
-          :distance="areaSize * 2"
+          :position="[0, areaSize * 0.1, areaSize * 0.45]"
+          :color="getColorfulLight(0.7)"
+          :intensity="areaSize * 1.2"
+          :distance="areaSize * 2.5"
           :decay="1"
         />
         <TresPointLight
-          :position="[-areaSize * 0.3, -areaSize * 0.3, -areaSize * 0.3]"
-          :color="getColorfulLight(0.85)"
-          :intensity="areaSize * 0.5"
-          :distance="areaSize * 2"
+          :position="[0, areaSize * 0.1, -areaSize * 0.45]"
+          :color="getColorfulLight(0.95)"
+          :intensity="areaSize * 1.2"
+          :distance="areaSize * 2.5"
           :decay="1"
         />
         
-        <!-- 壁面からの間接光 -->
+        <!-- 床からの間接照明 -->
         <TresPointLight
-          :position="[areaSize * 0.9, 0, 0]"
+          :position="[areaSize * 0.2, -areaSize * 0.4, areaSize * 0.2]"
           :color="getColorfulLight(0.2)"
-          :intensity="areaSize * 0.6"
-          :distance="areaSize * 2.5"
+          :intensity="areaSize * 0.8"
+          :distance="areaSize * 1.8"
           :decay="1.2"
         />
         <TresPointLight
-          :position="[-areaSize * 0.9, 0, 0]"
-          :color="getColorfulLight(0.4)"
-          :intensity="areaSize * 0.6"
-          :distance="areaSize * 2.5"
-          :decay="1.2"
-        />
-        <TresPointLight
-          :position="[0, 0, areaSize * 0.9]"
-          :color="getColorfulLight(0.7)"
-          :intensity="areaSize * 0.6"
-          :distance="areaSize * 2.5"
-          :decay="1.2"
-        />
-        <TresPointLight
-          :position="[0, 0, -areaSize * 0.9]"
-          :color="getColorfulLight(0.95)"
-          :intensity="areaSize * 0.6"
-          :distance="areaSize * 2.5"
+          :position="[-areaSize * 0.2, -areaSize * 0.4, -areaSize * 0.2]"
+          :color="getColorfulLight(0.8)"
+          :intensity="areaSize * 0.8"
+          :distance="areaSize * 1.8"
           :decay="1.2"
         />
       </TresGroup>
