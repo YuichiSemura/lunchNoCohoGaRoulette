@@ -58,8 +58,8 @@ const getMirrorTileTransform = (index: number, total: number) => {
   const euler = new Euler().setFromQuaternion(quaternion, 'XYZ');
 
   return {
-    position,
-    rotation: [euler.x, euler.y, euler.z],
+    position: position as [number, number, number],
+    rotation: [euler.x, euler.y, euler.z] as [number, number, number],
   };
 };
 
