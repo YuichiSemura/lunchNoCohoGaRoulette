@@ -2,7 +2,7 @@
 import draggable from "vuedraggable";
 import { TresCanvas, useRenderLoop } from '@tresjs/core';
 import { computed, reactive, ref, watchEffect } from 'vue';
-import { BasicShadowMap, SRGBColorSpace, NoToneMapping } from 'three';
+import { BasicShadowMap, SRGBColorSpace, NoToneMapping, Vector3, Quaternion, Euler } from 'three';
 import { OrbitControls, Text3D, Stars } from '@tresjs/cientos';
 import { useControls } from '@tresjs/leches';
 
@@ -16,6 +16,47 @@ watchEffect(()=>{
 })
 
 const starRotationY = ref(0);
+const mirrorBallRotationY = ref(0);
+const mirrorBallRotationX = ref(0);
+const colorTime = ref(0);
+
+// カラフルなライトの色計算
+const getColorfulLight = (offset: number) => {
+  const hue = (colorTime.value * 0.001 + offset) % 1;
+  return `hsl(${hue * 360}, 100%, 70%)`;
+};
+
+// 球面座標でタイルの位置と回転を計算
+const getMirrorTileTransform = (index: number, total: number) => {
+  const ballRadius = originalAreaSize * 0.082;
+
+  const golden_angle = Math.PI * (3 - Math.sqrt(5));
+  const y = 1 - (index / (total - 1)) * 2;
+  const radius = Math.sqrt(1 - y * y);
+
+  const theta = golden_angle * index;
+
+  const x = Math.cos(theta) * radius;
+  const z = Math.sin(theta) * radius;
+
+  const position = [x * ballRadius, y * ballRadius, z * ballRadius];
+
+  // 法線ベクトル
+  const normal = new Vector3(x, y, z).normalize();
+
+  // デフォルトの面の向きを z+ と仮定
+  const defaultDirection = new Vector3(0, 0, 1);
+
+  // タイルを球面に沿って向けるためのクォータニオン
+  const quaternion = new Quaternion().setFromUnitVectors(defaultDirection, normal);
+
+  const euler = new Euler().setFromQuaternion(quaternion, 'XYZ');
+
+  return {
+    position,
+    rotation: [euler.x, euler.y, euler.z],
+  };
+};
 
 const colorThemeMap = {
   light: {
@@ -95,9 +136,10 @@ const state = reactive({
   toneMapping: NoToneMapping,
 });
 
-const areaSize = 300;
+const areaSize = 600;
+const originalAreaSize = 300; // ルーレット、文字、カメラ用の元のサイズ
 type ThreeNumber = [number, number, number];
-const cameraInitialPosition: ThreeNumber = [areaSize * 0.3, areaSize * 0.6, areaSize * 0.8];
+const cameraInitialPosition: ThreeNumber = [originalAreaSize * 0.3, originalAreaSize * 0.6, originalAreaSize * 0.8];
 
 const pointLightIntensity = areaSize * 4;
 const pointLightDistance = areaSize * 3;
@@ -161,7 +203,6 @@ const lunchViewList = ref<string[]>(setParameter());
 const colorViewList = ref<number[]>(initColors(lunchList.value.length));
 
 // drag
-const isDragging = ref(false);
 const dragOptions = {
   animation: 200,
   group: "lunch",
@@ -291,8 +332,15 @@ const speedCurve = ref(0);
 const speedCurveCurvePlus = 0.00003;
 // ルーレットの加速度の微分の減速時の微分
 const speedCurveCurveMinus = 0.0000027;
-onLoop(({ elapsed }) => {
-  starRotationY.value += 0.000001 * elapsed;
+onLoop(({ delta }) => {
+  starRotationY.value += 0.001 * delta;
+  
+  // ミラーボールの回転速度：基本速度 + ルーレット回転速度に比例
+  const rouletteSpeedMultiplier = speed.value * 10; // ルーレット速度を10倍に増幅
+  mirrorBallRotationY.value += (0.5 + rouletteSpeedMultiplier) * delta;
+  mirrorBallRotationX.value += (0.3 + rouletteSpeedMultiplier * 0.6) * delta;
+  
+  colorTime.value += delta;
   if (gameStatus.value === 1) {
     speedCurve.value = Math.max(0, Math.min(speedCurve.value + speedCurveCurvePlus, speedPlus.value));
     speed.value = Math.max(0, Math.min(speed.value + speedCurve.value, speedMax.value));
@@ -346,9 +394,9 @@ watchEffect(() => {
         <TresMesh v-for="(item, index) in lunchColorList" :position="[0, 0, 0]">
           <TresCylinderGeometry
             :args="[
-              areaSize * 0.25,
-              areaSize * 0.25,
-              areaSize * 0.1,
+              originalAreaSize * 0.25,
+              originalAreaSize * 0.25,
+              originalAreaSize * 0.1,
               40,
               1,
               false,
@@ -365,7 +413,8 @@ watchEffect(() => {
         </TresMesh>
 
         <TresGroup
-          v-for="(item, i) in lunchList"
+          v-for="(_, i) in lunchList"
+          :key="i"
           :rotation="[0, -((Math.PI * 2 * i) / lunchList.length + (Math.PI * 1) / lunchList.length), 0]"
         >
           <Suspense>
@@ -376,7 +425,7 @@ watchEffect(() => {
               :height="5"
               :curveSegments="12"
               center
-              :position="[0, areaSize * 0.05, -areaSize * 0.16]"
+              :position="[0, originalAreaSize * 0.05, -originalAreaSize * 0.16]"
               :rotation="[-Math.PI * 0.5, 0, 0]"
             >
               <TresMeshStandardMaterial />
@@ -384,8 +433,8 @@ watchEffect(() => {
           </Suspense>
         </TresGroup>
       </TresGroup>
-      <TresMesh :position="[0, areaSize * 0.11, -areaSize * 0.23]" :rotation="[-Math.PI * 1.2, 0, 0]">
-        <TresConeGeometry :args="[3, areaSize * 0.1, areaSize * 0.075]"></TresConeGeometry>
+      <TresMesh :position="[0, originalAreaSize * 0.11, -originalAreaSize * 0.23]" :rotation="[-Math.PI * 1.2, 0, 0]">
+        <TresConeGeometry :args="[3, originalAreaSize * 0.1, originalAreaSize * 0.075]"></TresConeGeometry>
         <TresMeshStandardMaterial :color="'#ffff00'" :roughness="0.03" :metalness="0.7" />
       </TresMesh>
       <Stars
@@ -397,6 +446,191 @@ watchEffect(() => {
         :size="areaSize * 0.012"
         :size-attenuation="true"
       />
+      <!-- ミラーボール（ダークモード時のみ表示） -->
+      <TresGroup 
+        v-if="darkMode" 
+        :position="[0, areaSize * 0.4, 0]"
+        :rotation="[mirrorBallRotationX, mirrorBallRotationY, 0]"
+      >
+        <!-- ミラーボール周囲のカラフルなポイントライト -->
+        <TresPointLight
+          :position="[areaSize * 0.15, areaSize * 0.15, areaSize * 0.15]"
+          :color="getColorfulLight(0)"
+          :intensity="areaSize * 2"
+          :distance="areaSize * 2"
+          :decay="1.5"
+        />
+        <TresPointLight
+          :position="[-areaSize * 0.15, areaSize * 0.15, areaSize * 0.15]"
+          :color="getColorfulLight(0.25)"
+          :intensity="areaSize * 2"
+          :distance="areaSize * 2"
+          :decay="1.5"
+        />
+        <TresPointLight
+          :position="[areaSize * 0.15, areaSize * 0.15, -areaSize * 0.15]"
+          :color="getColorfulLight(0.5)"
+          :intensity="areaSize * 2"
+          :distance="areaSize * 2"
+          :decay="1.5"
+        />
+        <TresPointLight
+          :position="[-areaSize * 0.15, areaSize * 0.15, -areaSize * 0.15]"
+          :color="getColorfulLight(0.75)"
+          :intensity="areaSize * 2"
+          :distance="areaSize * 2"
+          :decay="1.5"
+        />
+        <TresPointLight
+          :position="[0, areaSize * 0.2, 0]"
+          :color="getColorfulLight(0.125)"
+          :intensity="areaSize * 1.8"
+          :distance="areaSize * 2.5"
+          :decay="1.2"
+        />
+        <TresPointLight
+          :position="[areaSize * 0.1, -areaSize * 0.05, 0]"
+          :color="getColorfulLight(0.375)"
+          :intensity="areaSize * 1.5"
+          :distance="areaSize * 2"
+          :decay="1.5"
+        />
+        <TresPointLight
+          :position="[-areaSize * 0.1, -areaSize * 0.05, 0]"
+          :color="getColorfulLight(0.625)"
+          :intensity="areaSize * 1.5"
+          :distance="areaSize * 2"
+          :decay="1.5"
+        />
+        <TresPointLight
+          :position="[0, -areaSize * 0.05, areaSize * 0.1]"
+          :color="getColorfulLight(0.875)"
+          :intensity="areaSize * 1.5"
+          :distance="areaSize * 2"
+          :decay="1.5"
+        />
+        
+        <!-- メインのミラーボール -->
+        <TresMesh>
+          <TresSphereGeometry :args="[originalAreaSize * 0.08, 32, 32]" />
+          <TresMeshStandardMaterial 
+            color="#C0C0C0" 
+            :metalness="1.0" 
+            :roughness="0.0"
+            :env-map-intensity="2.0"
+          />
+        </TresMesh>
+        
+        <!-- ミラーの小さなタイル -->
+        <TresMesh 
+          v-for="i in 250" 
+          :key="i"
+          :position="getMirrorTileTransform(i, 250).position"
+          :rotation="getMirrorTileTransform(i, 250).rotation"
+        >
+          <TresCircleGeometry :args="[originalAreaSize * 0.01, 16]" />
+          <TresMeshStandardMaterial 
+            :color="getColorfulLight(i * 0.004)"
+            :metalness="1.0" 
+            :roughness="0.0"
+            :emissive="getColorfulLight(i * 0.004)"
+            :emissive-intensity="0.4"
+          />
+        </TresMesh>
+      </TresGroup>
+      
+      <!-- 部屋全体を照らすディスコライト（ダークモード時のみ） -->
+      <TresGroup v-if="darkMode">
+        <!-- 部屋の四隅から拡散する光 -->
+        <TresPointLight
+          :position="[areaSize * 0.8, areaSize * 0.6, areaSize * 0.8]"
+          :color="getColorfulLight(0.1)"
+          :intensity="areaSize * 0.8"
+          :distance="areaSize * 3"
+          :decay="0.8"
+        />
+        <TresPointLight
+          :position="[-areaSize * 0.8, areaSize * 0.6, areaSize * 0.8]"
+          :color="getColorfulLight(0.3)"
+          :intensity="areaSize * 0.8"
+          :distance="areaSize * 3"
+          :decay="0.8"
+        />
+        <TresPointLight
+          :position="[areaSize * 0.8, areaSize * 0.6, -areaSize * 0.8]"
+          :color="getColorfulLight(0.6)"
+          :intensity="areaSize * 0.8"
+          :distance="areaSize * 3"
+          :decay="0.8"
+        />
+        <TresPointLight
+          :position="[-areaSize * 0.8, areaSize * 0.6, -areaSize * 0.8]"
+          :color="getColorfulLight(0.9)"
+          :intensity="areaSize * 0.8"
+          :distance="areaSize * 3"
+          :decay="0.8"
+        />
+        
+        <!-- 床からの反射光 -->
+        <TresPointLight
+          :position="[areaSize * 0.3, -areaSize * 0.3, areaSize * 0.3]"
+          :color="getColorfulLight(0.15)"
+          :intensity="areaSize * 0.5"
+          :distance="areaSize * 2"
+          :decay="1"
+        />
+        <TresPointLight
+          :position="[-areaSize * 0.3, -areaSize * 0.3, areaSize * 0.3]"
+          :color="getColorfulLight(0.45)"
+          :intensity="areaSize * 0.5"
+          :distance="areaSize * 2"
+          :decay="1"
+        />
+        <TresPointLight
+          :position="[areaSize * 0.3, -areaSize * 0.3, -areaSize * 0.3]"
+          :color="getColorfulLight(0.65)"
+          :intensity="areaSize * 0.5"
+          :distance="areaSize * 2"
+          :decay="1"
+        />
+        <TresPointLight
+          :position="[-areaSize * 0.3, -areaSize * 0.3, -areaSize * 0.3]"
+          :color="getColorfulLight(0.85)"
+          :intensity="areaSize * 0.5"
+          :distance="areaSize * 2"
+          :decay="1"
+        />
+        
+        <!-- 壁面からの間接光 -->
+        <TresPointLight
+          :position="[areaSize * 0.9, 0, 0]"
+          :color="getColorfulLight(0.2)"
+          :intensity="areaSize * 0.6"
+          :distance="areaSize * 2.5"
+          :decay="1.2"
+        />
+        <TresPointLight
+          :position="[-areaSize * 0.9, 0, 0]"
+          :color="getColorfulLight(0.4)"
+          :intensity="areaSize * 0.6"
+          :distance="areaSize * 2.5"
+          :decay="1.2"
+        />
+        <TresPointLight
+          :position="[0, 0, areaSize * 0.9]"
+          :color="getColorfulLight(0.7)"
+          :intensity="areaSize * 0.6"
+          :distance="areaSize * 2.5"
+          :decay="1.2"
+        />
+        <TresPointLight
+          :position="[0, 0, -areaSize * 0.9]"
+          :color="getColorfulLight(0.95)"
+          :intensity="areaSize * 0.6"
+          :distance="areaSize * 2.5"
+          :decay="1.2"
+        />
+      </TresGroup>
     </TresCanvas>
     <div class="navigation">
       <v-app-bar app :color="appBarColor">
@@ -447,7 +681,7 @@ watchEffect(() => {
           handle=".handle"
           item-key="."
           >
-          <template #item="{ _, index }">
+          <template #item="{ index }">
             <v-list-item class="list-group-item">
               <v-text-field
               v-model="lunchViewList[index]"
