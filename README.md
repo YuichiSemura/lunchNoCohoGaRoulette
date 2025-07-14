@@ -32,7 +32,6 @@ https://yuichisemura.github.io/lunchNoCohoGaRoulette/
 
 ## 今後の改善案
 
-- ダークモードにちなんだ楽しい機能
 - 飲み会などの利用可能性を考え、接待モードを追加する
 
 ## 技術
