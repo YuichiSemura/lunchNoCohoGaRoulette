@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import draggable from "vuedraggable";
 import { TresCanvas, useRenderLoop } from '@tresjs/core';
-import { computed, reactive, ref, watchEffect } from 'vue';
+import { computed, reactive, ref, watchEffect, onMounted, onUnmounted } from 'vue';
 import { BasicShadowMap, SRGBColorSpace, NoToneMapping, Vector3, Quaternion, Euler } from 'three';
 import { OrbitControls, Text3D, Stars } from '@tresjs/cientos';
 import { useControls } from '@tresjs/leches';
@@ -404,7 +404,11 @@ const handleKeydown = (event: KeyboardEvent) => {
     // 1秒以内に2回目が押されなかった場合はリセット
     vipKeyTimer = setTimeout(() => {
       vipKeyPressCount.value = 0;
-      vipMode.value = false;
+      if (vipMode.value) {
+        vipMode.value = false;
+        vipTargetIndex.value = -1;
+        console.log('🔓 接待モードが自動的に解除されました（タイムアウト）');
+      }
     }, 1000);
   }
   
@@ -422,7 +426,7 @@ const handleKeydown = (event: KeyboardEvent) => {
       event.preventDefault();
       vipMode.value = true;
       vipTargetIndex.value = targetIndex;
-      console.log(`🎯 VIPターゲット設定: ${targetIndex + 1}番 (${lunchList.value[targetIndex]})`);
+      console.log(`🎯 接待モードが設定されました: ${lunchList.value[targetIndex]} (${targetIndex + 1}番)`);
     }
   }
 };
@@ -430,8 +434,21 @@ const handleKeydown = (event: KeyboardEvent) => {
 // 初期化時にVIPモードをセットアップ
 setupVipMode();
 
-// キーボードショートカットの設定
-window.addEventListener('keydown', handleKeydown);
+// コンポーネントのライフサイクル管理
+onMounted(() => {
+  // キーボードショートカットの設定
+  window.addEventListener('keydown', handleKeydown);
+});
+
+onUnmounted(() => {
+  // イベントリスナーのクリーンアップ
+  window.removeEventListener('keydown', handleKeydown);
+  
+  // タイマーのクリーンアップ
+  if (vipKeyTimer) {
+    clearTimeout(vipKeyTimer);
+  }
+});
 
 // VIP設定の適用
 const applyVipSettings = (target: string) => {
@@ -440,21 +457,24 @@ const applyVipSettings = (target: string) => {
     if (targetIndex !== -1) {
       vipMode.value = true;
       vipTargetIndex.value = targetIndex;
+      console.log(`🎯 接待モードが設定されました: ${target.trim()}`);
     } else {
       vipMode.value = false;
       vipTargetIndex.value = -1;
+      console.log('❌ 指定されたランチが見つからないため、接待モードを解除しました');
     }
   } else {
     vipMode.value = false;
     vipTargetIndex.value = -1;
+    console.log('🔓 接待モードが解除されました');
   }
-  dialogVip.value = false;
 };
 
 // VIP設定のリセット
 const resetVipSettings = () => {
   vipMode.value = false;
   vipTargetIndex.value = -1;
+  console.log('🔄 接待モードがリセットされました');
   dialogVip.value = false;
 };
 
@@ -922,6 +942,15 @@ watchEffect(() => {
             class="mb-4"
           >
             現在のターゲット: <strong>{{ lunchViewList[vipTargetIndex] }}</strong>
+          </v-alert>
+          
+          <v-alert 
+            v-if="!vipMode || vipTargetIndex === -1" 
+            type="warning" 
+            variant="tonal" 
+            class="mb-4"
+          >
+            接待モードは現在<strong>無効</strong>です
           </v-alert>
           
           <v-select
