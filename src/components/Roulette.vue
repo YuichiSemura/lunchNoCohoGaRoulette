@@ -165,6 +165,10 @@ const floorConfigList: { position: ThreeNumber; rotation: ThreeNumber }[] = [
 // 初期リスト
 var initList = ['陳麻婆豆腐', 'McDonald', '五右衛門'];
 
+// 接待モード関連
+const vipMode = ref<boolean>(false);
+const vipTargetIndex = ref<number>(-1);
+
 // URLのパース
 const getParam = (name: string, url: string) => {
   if (!url) url = window.location.href;
@@ -180,6 +184,26 @@ const getParam = (name: string, url: string) => {
 const setParameter = () => {
   const query = getParam('list', location.href);
   return query == null ? initList.map((v)=> v) : query.split(',');
+};
+
+// VIPモード設定の取得
+const setupVipMode = () => {
+  const vipQuery = getParam('vip', location.href);
+  if (vipQuery && vipQuery.trim() !== '') {
+    const targetName = decodeURIComponent(vipQuery.trim());
+    const targetIndex = lunchList.value.findIndex(item => item === targetName);
+    if (targetIndex !== -1) {
+      vipMode.value = true;
+      vipTargetIndex.value = targetIndex;
+      console.log('🎯 VIPモードが有効になりました'); // デバッグ用
+    } else {
+      vipMode.value = false;
+      vipTargetIndex.value = -1;
+    }
+  } else {
+    vipMode.value = false;
+    vipTargetIndex.value = -1;
+  }
 };
 
 // 色のランダム生成
@@ -278,13 +302,26 @@ useControls('fpsgraph');
 const { onLoop } = useRenderLoop();
 const gameStatus = ref(0);
 const result = ref('');
+// STOPを押した時のrotationYから、完全に停止する位置を予測するための数値 rotationConstant
+const rotationConstant = 100.378406034;
 
 const rouletteBtnClick = () => {
   if (gameStatus.value === 0) {
     gameStatus.value = 1;
     gameStart();
-  } else if (gameStatus.value === 1) {
+  } else if (gameStatus.value === 1 && speed.value >= speedMax.value) {
+    // 最高速度に到達している時のみSTOPを受け付ける
     gameStatus.value = 2;
+    
+    // VIPモードの場合は、目標位置に向けて角度を調整
+    if (vipMode.value && vipTargetIndex.value !== -1) {
+
+      const targetQuo = (Math.random() + vipTargetIndex.value) / lunchList.value.length;
+      const targetRotation = Math.PI * 2 * targetQuo;
+
+      // 現在の回転値を調整
+      rouletteGroupRotationY.value = targetRotation - rotationConstant;
+    }
   }
 };
 
@@ -301,12 +338,12 @@ const rouletteBtnColor = computed(() => {
   return gameStatus.value === 0
     ? rouletteBtnColorStart
     : gameStatus.value === 1
-      ? rouletteBtnColorStop
+      ? (speed.value >= speedMax.value ? rouletteBtnColorStop : rouletteBtnColorDisabled)
       : rouletteBtnColorDisabled;
 });
 
 const rouletteBtnDisabled = computed(() => {
-  return gameStatus.value === 2;
+  return gameStatus.value === 2 || (gameStatus.value === 1 && speed.value < speedMax.value);
 });
 
 const rouletteBtnTitle = computed(() => {
@@ -337,6 +374,89 @@ const gameEnd = () => {
 const drawer = ref(true);
 const dialog = ref(false);
 const dialogHelp = ref(false);
+const dialogVip = ref(false); // VIP設定ダイアログ
+
+// キーボードショートカット関連
+const vipKeyPressCount = ref<number>(0);
+let vipKeyTimer: number | null = null;
+
+// キーボードショートカットの処理
+const handleKeydown = (event: KeyboardEvent) => {
+  // Shift + Ctrl + V で隠し設定を開く（2回押し）
+  if (event.shiftKey && event.ctrlKey && event.key.toLowerCase() === 'v') {
+    event.preventDefault();
+    
+    vipKeyPressCount.value++;
+    
+    // タイマーをクリア
+    if (vipKeyTimer) {
+      clearTimeout(vipKeyTimer);
+    }
+    
+    // 2回押しでダイアログを開く
+    if (vipKeyPressCount.value === 2) {
+      dialogVip.value = true;
+      vipKeyPressCount.value = 0;
+      console.log('🔒 VIP設定ダイアログを開きました');
+      return;
+    }
+    
+    // 1秒以内に2回目が押されなかった場合はリセット
+    vipKeyTimer = setTimeout(() => {
+      vipKeyPressCount.value = 0;
+      vipMode.value = false;
+    }, 1000);
+  }
+  
+  // Shift + Ctrl + 数字キー でVIPターゲットを直接設定
+  if (event.shiftKey && event.ctrlKey) {
+    let targetIndex = -1;
+    
+    if (event.key >= '1' && event.key <= '9') {
+      targetIndex = parseInt(event.key) - 1; // 1-9 → 0-8
+    } else if (event.key === '0') {
+      targetIndex = 9; // 0 → 9 (10番目)
+    }
+    
+    if (targetIndex !== -1 && targetIndex < lunchList.value.length) {
+      event.preventDefault();
+      vipMode.value = true;
+      vipTargetIndex.value = targetIndex;
+      console.log(`🎯 VIPターゲット設定: ${targetIndex + 1}番 (${lunchList.value[targetIndex]})`);
+    }
+  }
+};
+
+// 初期化時にVIPモードをセットアップ
+setupVipMode();
+
+// キーボードショートカットの設定
+window.addEventListener('keydown', handleKeydown);
+
+// VIP設定の適用
+const applyVipSettings = (target: string) => {
+  if (target.trim() !== '') {
+    const targetIndex = lunchViewList.value.findIndex(item => item === target.trim());
+    if (targetIndex !== -1) {
+      vipMode.value = true;
+      vipTargetIndex.value = targetIndex;
+    } else {
+      vipMode.value = false;
+      vipTargetIndex.value = -1;
+    }
+  } else {
+    vipMode.value = false;
+    vipTargetIndex.value = -1;
+  }
+  dialogVip.value = false;
+};
+
+// VIP設定のリセット
+const resetVipSettings = () => {
+  vipMode.value = false;
+  vipTargetIndex.value = -1;
+  dialogVip.value = false;
+};
 
 // ルーレットの速度
 const speed = ref(0);
@@ -364,6 +484,7 @@ onLoop(({ delta }) => {
     speed.value = Math.max(0, Math.min(speed.value + speedCurve.value, speedMax.value));
     rouletteGroupRotationY.value += Math.PI * speed.value;
   } else if (gameStatus.value === 2) {
+    // 通常の減速処理
     speedCurve.value = Math.max(
       speedPlus.value / 80,
       Math.min(speedCurve.value - speedCurveCurveMinus, speedPlus.value),
@@ -587,8 +708,8 @@ watchEffect(() => {
       <v-app-bar app :color="appBarColor">
         <v-app-bar-nav-icon class="mr-3" variant="text" @click.stop="drawer = !drawer"></v-app-bar-nav-icon>
 
-        <div class="font-weight-bold d-flex d-sm-none">ランチの候補がルーレット ver2.1</div>
-        <h2 class="font-weight-bold d-none d-sm-flex">ランチの候補がルーレット ver2.1</h2>
+        <div class="font-weight-bold d-flex d-sm-none">ランチの候補がルーレット ver2.2</div>
+        <h2 class="font-weight-bold d-none d-sm-flex">ランチの候補がルーレット ver2.2</h2>
         <template v-slot:append>
           <span class="mr-2">
             <v-switch v-model="darkMode" inset hide-details>
@@ -783,6 +904,65 @@ watchEffect(() => {
         </v-card-text>
         <template v-slot:actions>
           <v-btn class="ms-auto" variant="tonal" text="Ok" @click="dialogHelp = false"></v-btn>
+        </template>
+      </v-card>
+    </v-dialog>
+    
+    <!-- VIP設定ダイアログ（隠し機能） -->
+    <v-dialog v-model="dialogVip" width="30%" min-width="400" persistent>
+      <v-card class="pa-5" :color="dialogColor">
+        <v-card-title>
+          <h3>🎯 接待モード設定</h3>
+        </v-card-title>
+        <v-card-text class="px-2 py-4">
+          <v-alert 
+            v-if="vipMode && vipTargetIndex !== -1" 
+            type="success" 
+            variant="tonal" 
+            class="mb-4"
+          >
+            現在のターゲット: <strong>{{ lunchViewList[vipTargetIndex] }}</strong>
+          </v-alert>
+          
+          <v-select
+            :model-value="vipTargetIndex !== -1 ? lunchViewList[vipTargetIndex] : ''"
+            :items="lunchViewList"
+            label="優先候補を選択"
+            variant="outlined"
+            density="comfortable"
+            clearable
+            hint="ここで選択した候補がルーレット結果として必ず選ばれます"
+            persistent-hint
+            @update:model-value="(value) => applyVipSettings(value || '')"
+          ></v-select>
+          
+          <v-alert type="info" variant="tonal" class="mt-4">
+            <div class="text-body-2">
+              <strong>使用方法:</strong><br>
+              • 候補を選択すると接待モードが有効になります<br>
+              • 選択した候補が確実にルーレット結果として表示されます<br>
+              • URLに ?vip=候補名 を追加しても設定可能です<br>
+              • <kbd>Ctrl + Shift + V</kbd> を2回押しでこの画面を表示<br>
+              • <kbd>Ctrl + Shift + [1-9,0]</kbd> で直接設定も可能
+            </div>
+          </v-alert>
+        </v-card-text>
+        
+        <template v-slot:actions>
+          <v-btn 
+            variant="outlined" 
+            @click="resetVipSettings"
+            class="mr-2"
+          >
+            リセット
+          </v-btn>
+          <v-spacer></v-spacer>
+          <v-btn 
+            variant="tonal" 
+            @click="dialogVip = false"
+          >
+            閉じる
+          </v-btn>
         </template>
       </v-card>
     </v-dialog>
