@@ -1,7 +1,7 @@
 {
   "name": "lunch-no-coho-ga-roulette",
   "type": "module",
-  "version": "1.0.0",
+  "version": "2.2.0",
   "description": "3Dのルーレットです。",
   "license": "MIT",
   "scripts": {
