@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import draggable from "vuedraggable";
 import { TresCanvas, useRenderLoop } from '@tresjs/core';
-import { computed, reactive, ref, watchEffect } from 'vue';
+import { computed, reactive, ref, watchEffect, onMounted, onUnmounted } from 'vue';
 import { BasicShadowMap, SRGBColorSpace, NoToneMapping, Vector3, Quaternion, Euler } from 'three';
 import { OrbitControls, Text3D, Stars } from '@tresjs/cientos';
 import { useControls } from '@tresjs/leches';
@@ -347,7 +347,13 @@ const rouletteBtnDisabled = computed(() => {
 });
 
 const rouletteBtnTitle = computed(() => {
-  return gameStatus.value === 0 ? 'START' : 'STOP';
+  if (gameStatus.value === 0) {
+    return 'START';
+  } else if (gameStatus.value === 1 && speed.value < speedMax.value) {
+    return '加速中...';
+  } else {
+    return 'STOP';
+  }
 });
 
 const gameEnd = () => {
@@ -380,6 +386,12 @@ const dialogVip = ref(false); // VIP設定ダイアログ
 const vipKeyPressCount = ref<number>(0);
 let vipKeyTimer: number | null = null;
 
+// ダークモード連続タップ関連
+const darkModeClickCount = ref<number>(0);
+let darkModeClickTimer: number | null = null;
+const darkModeClickThreshold = 5; // 5回タップ
+const darkModeClickTimeout = 2000; // 2秒以内
+
 // キーボードショートカットの処理
 const handleKeydown = (event: KeyboardEvent) => {
   // Shift + Ctrl + V で隠し設定を開く（2回押し）
@@ -404,7 +416,11 @@ const handleKeydown = (event: KeyboardEvent) => {
     // 1秒以内に2回目が押されなかった場合はリセット
     vipKeyTimer = setTimeout(() => {
       vipKeyPressCount.value = 0;
-      vipMode.value = false;
+      if (vipMode.value) {
+        vipMode.value = false;
+        vipTargetIndex.value = -1;
+        console.log('🔓 接待モードが自動的に解除されました（タイムアウト）');
+      }
     }, 1000);
   }
   
@@ -418,11 +434,11 @@ const handleKeydown = (event: KeyboardEvent) => {
       targetIndex = 9; // 0 → 9 (10番目)
     }
     
-    if (targetIndex !== -1 && targetIndex < lunchList.value.length) {
+    if (targetIndex !== -1 && targetIndex < lunchViewList.value.length) {
       event.preventDefault();
       vipMode.value = true;
       vipTargetIndex.value = targetIndex;
-      console.log(`🎯 VIPターゲット設定: ${targetIndex + 1}番 (${lunchList.value[targetIndex]})`);
+      console.log(`🎯 接待モードが設定されました: ${lunchViewList.value[targetIndex]} (${targetIndex + 1}番)`);
     }
   }
 };
@@ -430,8 +446,24 @@ const handleKeydown = (event: KeyboardEvent) => {
 // 初期化時にVIPモードをセットアップ
 setupVipMode();
 
-// キーボードショートカットの設定
-window.addEventListener('keydown', handleKeydown);
+// コンポーネントのライフサイクル管理
+onMounted(() => {
+  // キーボードショートカットの設定
+  window.addEventListener('keydown', handleKeydown);
+});
+
+onUnmounted(() => {
+  // イベントリスナーのクリーンアップ
+  window.removeEventListener('keydown', handleKeydown);
+  
+  // タイマーのクリーンアップ
+  if (vipKeyTimer) {
+    clearTimeout(vipKeyTimer);
+  }
+  if (darkModeClickTimer) {
+    clearTimeout(darkModeClickTimer);
+  }
+});
 
 // VIP設定の適用
 const applyVipSettings = (target: string) => {
@@ -440,22 +472,48 @@ const applyVipSettings = (target: string) => {
     if (targetIndex !== -1) {
       vipMode.value = true;
       vipTargetIndex.value = targetIndex;
+      console.log(`🎯 接待モードが設定されました: ${target.trim()}`);
     } else {
       vipMode.value = false;
       vipTargetIndex.value = -1;
+      console.log('❌ 指定されたランチが見つからないため、接待モードを解除しました');
     }
   } else {
     vipMode.value = false;
     vipTargetIndex.value = -1;
+    console.log('🔓 接待モードが解除されました');
   }
-  dialogVip.value = false;
 };
 
 // VIP設定のリセット
 const resetVipSettings = () => {
   vipMode.value = false;
   vipTargetIndex.value = -1;
+  console.log('🔄 接待モードがリセットされました');
   dialogVip.value = false;
+};
+
+// ダークモード連続タップ検出ロジック
+const handleDarkModeClick = () => {
+  darkModeClickCount.value++;
+  
+  // タイマーをクリア
+  if (darkModeClickTimer) {
+    clearTimeout(darkModeClickTimer);
+  }
+  
+  // 5回タップで接待ダイアログを開く
+  if (darkModeClickCount.value === darkModeClickThreshold) {
+    dialogVip.value = true;
+    darkModeClickCount.value = 0;
+    console.log('🌙 ダークモード5回タップで接待ダイアログを開きました');
+    return;
+  }
+  
+  // 2秒以内にタップされなかった場合はリセット
+  darkModeClickTimer = setTimeout(() => {
+    darkModeClickCount.value = 0;
+  }, darkModeClickTimeout);
 };
 
 // ルーレットの速度
@@ -712,7 +770,7 @@ watchEffect(() => {
         <h2 class="font-weight-bold d-none d-sm-flex">ランチの候補がルーレット ver2.2</h2>
         <template v-slot:append>
           <span class="mr-2">
-            <v-switch v-model="darkMode" inset hide-details>
+            <v-switch v-model="darkMode" inset hide-details @click="handleDarkModeClick">
               <template v-slot:prepend> <v-icon icon="mdi-brightness-7" /></template>
               <template v-slot:append>
                 <v-icon icon="mdi-brightness-3" />
@@ -924,6 +982,15 @@ watchEffect(() => {
             現在のターゲット: <strong>{{ lunchViewList[vipTargetIndex] }}</strong>
           </v-alert>
           
+          <v-alert 
+            v-if="!vipMode || vipTargetIndex === -1" 
+            type="warning" 
+            variant="tonal" 
+            class="mb-4"
+          >
+            接待モードは現在<strong>無効</strong>です
+          </v-alert>
+          
           <v-select
             :model-value="vipTargetIndex !== -1 ? lunchViewList[vipTargetIndex] : ''"
             :items="lunchViewList"
@@ -943,7 +1010,8 @@ watchEffect(() => {
               • 選択した候補が確実にルーレット結果として表示されます<br>
               • URLに ?vip=候補名 を追加しても設定可能です<br>
               • <kbd>Ctrl + Shift + V</kbd> を2回押しでこの画面を表示<br>
-              • <kbd>Ctrl + Shift + [1-9,0]</kbd> で直接設定も可能
+              • <kbd>Ctrl + Shift + [1-9,0]</kbd> で直接設定も可能<br>
+              • ダークモードスイッチを2秒以内に5回タップでこの画面を表示
             </div>
           </v-alert>
         </v-card-text>
